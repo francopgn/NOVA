@@ -282,6 +282,15 @@ export const STORIES: Story[] = professionals
 // ---------- "logged-in" professional for the dashboard ----------
 export const CURRENT_PROFESSIONAL: Professional = professionals[2]!;
 
+// ---------- "logged-in" client persona (used by auth + client profile) ----------
+export const CURRENT_CLIENT = {
+  id: "client-1",
+  name: "Camila Ríos",
+  email: "camila.rios@gmail.com",
+  avatarUrl: "https://i.pravatar.cc/200?img=68",
+  memberSince: "Miembro desde marzo de 2025",
+};
+
 const ADDONS_POOL = [
   { id: "add-informe", label: "Informe extendido", price: 3500 },
   { id: "add-material", label: "Material de trabajo", price: 2200 },
