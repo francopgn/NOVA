@@ -1,11 +1,15 @@
 "use client";
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Globe, Menu, Plus, Search as SearchIcon, User, Bell } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Globe, Menu, Plus, Search as SearchIcon, Bell, LogOut, CalendarClock, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SearchBar } from "@/components/molecules/search-bar";
+import { AuthDialog } from "@/components/organisms/auth-dialog";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -19,9 +23,17 @@ const CURRENCIES = ["AR$ Peso argentino", "US$ Dólar estadounidense"];
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
   const [lang, setLang] = React.useState<string>(LANGS[0] as string);
   const [currency, setCurrency] = React.useState<string>(CURRENCIES[0] as string);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [authOpen, setAuthOpen] = React.useState(false);
+
+  function handleSignOut() {
+    signOut();
+    router.push("/");
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-background/70 backdrop-blur-xl">
@@ -108,14 +120,41 @@ export function Navbar() {
             </Button>
           </Link>
 
-          <Link href="/perfil" className="hidden sm:block">
-            <Button variant="ghost" size="sm">
-              Iniciar sesión
-            </Button>
-          </Link>
-          <Link href="/perfil" className="hidden sm:block">
-            <Button size="sm">Registrarse</Button>
-          </Link>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-full border border-border bg-secondary/50 py-1 pl-1 pr-3 transition-colors hover:bg-secondary">
+                  <span className="relative h-7 w-7 overflow-hidden rounded-full">
+                    <Image src={user.avatarUrl} alt={user.name} fill sizes="28px" className="object-cover" />
+                  </span>
+                  <span className="hidden text-xs font-medium sm:inline">{user.name.split(" ")[0]}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel>{user.role === "cliente" ? "Cuenta de cliente" : "Cuenta de prestador"}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/perfil"><CalendarClock size={15} /> Mi perfil</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/panel"><LayoutDashboard size={15} /> Panel profesional</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleSignOut} className="text-destructive">
+                  <LogOut size={15} /> Cerrar sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => setAuthOpen(true)}>
+                Iniciar sesión
+              </Button>
+              <Button size="sm" className="hidden sm:inline-flex" onClick={() => setAuthOpen(true)}>
+                Registrarse
+              </Button>
+            </>
+          )}
 
           <Button
             variant="ghost"
@@ -138,12 +177,23 @@ export function Navbar() {
               </Link>
             ))}
             <div className="my-2 h-px bg-border" />
-            <Link href="/perfil" className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-white/5">Iniciar sesión</Link>
-            <Link href="/perfil" className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-white/5">Registrarse</Link>
+            {user ? (
+              <>
+                <Link href="/perfil" className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-white/5">Mi perfil</Link>
+                <button onClick={handleSignOut} className="rounded-xl px-3 py-2.5 text-left text-sm font-medium text-destructive hover:bg-white/5">Cerrar sesión</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => { setMobileOpen(false); setAuthOpen(true); }} className="rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-white/5">Iniciar sesión</button>
+                <button onClick={() => { setMobileOpen(false); setAuthOpen(true); }} className="rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-white/5">Registrarse</button>
+              </>
+            )}
             <Link href="/panel" className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-white/5">Publicar anuncio</Link>
           </div>
         </div>
       )}
+
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </header>
   );
 }

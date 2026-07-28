@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { FavoritesProvider } from "@/hooks/use-favorites";
+import { AuthProvider } from "@/hooks/use-auth";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es-AR" className={cn("dark", GeistSans.variable, GeistMono.variable)} suppressHydrationWarning>
       <body className="min-h-screen font-sans">
         <FavoritesProvider>
-          <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+          <AuthProvider>
+            <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+          </AuthProvider>
         </FavoritesProvider>
       </body>
     </html>

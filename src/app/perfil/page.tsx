@@ -10,19 +10,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProfessionalCard } from "@/components/molecules/professional-card";
 import { BookingRow } from "@/components/molecules/booking-row";
 import { getBookings } from "@/lib/api";
-import { PROFESSIONALS } from "@/lib/mock-data";
+import { CURRENT_CLIENT, PROFESSIONALS } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/hooks/use-favorites";
 import type { Booking } from "@/lib/types";
 
-const CLIENT = {
-  name: "Vos",
-  avatarUrl: "https://i.pravatar.cc/200?img=68",
-  memberSince: "Miembro desde marzo de 2025",
-};
-
 export default function ClientProfilePage() {
+  const { user } = useAuth();
   const { favorites } = useFavorites();
   const [bookings, setBookings] = React.useState<Booking[] | null>(null);
+
+  const client = user?.role === "cliente"
+    ? { name: user.name, avatarUrl: user.avatarUrl, memberSince: CURRENT_CLIENT.memberSince }
+    : { name: CURRENT_CLIENT.name, avatarUrl: CURRENT_CLIENT.avatarUrl, memberSince: CURRENT_CLIENT.memberSince };
 
   React.useEffect(() => {
     getBookings().then(setBookings);
@@ -38,11 +38,11 @@ export default function ClientProfilePage() {
       <div className="container py-8">
         <div className="mb-8 flex flex-wrap items-center gap-5 rounded-3xl border border-border bg-card p-6">
           <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full">
-            <Image src={CLIENT.avatarUrl} alt={CLIENT.name} fill sizes="80px" className="object-cover" />
+            <Image src={client.avatarUrl} alt={client.name} fill sizes="80px" className="object-cover" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold">{CLIENT.name}</h1>
-            <p className="text-sm text-muted-foreground">{CLIENT.memberSince}</p>
+            <h1 className="text-xl font-semibold">{client.name}</h1>
+            <p className="text-sm text-muted-foreground">{client.memberSince}</p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/notificaciones">
