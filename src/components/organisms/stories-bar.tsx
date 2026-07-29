@@ -83,7 +83,7 @@ export function StoriesBar({ professionals, storiesByProfessional }: { professio
           {activeProf && activeStory && (
             <div className="relative h-full w-full">
               <Image src={activeStory.imageUrl} alt={activeStory.caption} fill className="object-cover" />
-              <div className="absolute inset-x-0 top-0 flex gap-1 p-2.5">
+              <div className="absolute inset-x-0 top-0 z-20 flex gap-1 p-2.5">
                 {activeStories.map((s, i) => (
                   <div key={s.id} className="h-1 flex-1 overflow-hidden rounded-full bg-white/25">
                     <div
@@ -93,7 +93,7 @@ export function StoriesBar({ professionals, storiesByProfessional }: { professio
                   </div>
                 ))}
               </div>
-              <div className="absolute inset-x-0 top-6 flex items-center justify-between px-3 pt-2">
+              <div className="absolute inset-x-0 top-6 z-20 flex items-center justify-between px-3 pt-2">
                 <div className="flex items-center gap-2">
                   <div className="relative h-8 w-8 overflow-hidden rounded-full border border-white/40">
                     <Image src={activeProf.avatarUrl} alt={activeProf.name} fill className="object-cover" />
@@ -110,8 +110,8 @@ export function StoriesBar({ professionals, storiesByProfessional }: { professio
                 <p className="text-sm text-white">{activeStory.caption}</p>
               </div>
 
-              <button aria-label="Historia anterior" className="absolute inset-y-0 left-0 w-1/3" onClick={goPrev} />
-              <button aria-label="Historia siguiente" className="absolute inset-y-0 right-0 w-1/3" onClick={goNext} />
+              <button aria-label="Historia anterior" className="absolute left-0 top-16 z-10 h-[calc(100%-4rem)] w-1/3" onClick={goPrev} />
+              <button aria-label="Historia siguiente" className="absolute right-0 top-16 z-10 h-[calc(100%-4rem)] w-1/3" onClick={goNext} />
             </div>
           )}
         </DialogContent>
