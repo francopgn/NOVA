@@ -17,15 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { categoryById } from "@/lib/constants";
-import { CURRENT_PROFESSIONAL } from "@/lib/mock-data";
-import { mergeProviderProfile } from "@/lib/provider-profile";
-import { useProviderProfile } from "@/hooks/use-provider-profile";
 import type { Professional, Review } from "@/lib/types";
 
 export function ProfessionalProfileView({ professional: seed, reviews }: { professional: Professional; reviews: Review[] }) {
-  const { profile } = useProviderProfile();
-  const isOwnProfile = seed.id === CURRENT_PROFESSIONAL.id;
-  const professional = isOwnProfile ? mergeProviderProfile(seed, profile) : seed;
+    const professional = seed;
   const cat = categoryById(professional.categoryId);
 
   return (
