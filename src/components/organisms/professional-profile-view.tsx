@@ -17,11 +17,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { categoryById } from "@/lib/constants";
+import { CURRENT_PROFESSIONAL } from "@/lib/mock-data";
+import { mergeProviderProfile } from "@/lib/provider-profile";
+import { useProviderProfile } from "@/hooks/use-provider-profile";
+import { useReviews } from "@/hooks/use-reviews";
 import type { Professional, Review } from "@/lib/types";
 
-export function ProfessionalProfileView({ professional: seed, reviews }: { professional: Professional; reviews: Review[] }) {
-    const professional = seed;
+export function ProfessionalProfileView({ professional: seed, reviews: seedReviews }: { professional: Professional; reviews: Review[] }) {
+  const { profile } = useProviderProfile();
+  const { reviewsFor } = useReviews();
+  const isOwnProfile = seed.id === CURRENT_PROFESSIONAL.id;
+  const professional = isOwnProfile ? mergeProviderProfile(seed, profile) : seed;
   const cat = categoryById(professional.categoryId);
+  const reviews = [...reviewsFor(seed.id), ...seedReviews];
 
   return (
     <div className="container pt-6">
