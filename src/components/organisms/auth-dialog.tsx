@@ -6,11 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { GoogleIcon } from "@/components/atoms/google-icon";
 import { useAuth, type UserRole } from "@/hooks/use-auth";
+import { useProviderProfile } from "@/hooks/use-provider-profile";
 import { cn } from "@/lib/utils";
 
 export function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const router = useRouter();
   const { signInWithGoogle, loading } = useAuth();
+  const { onboarded } = useProviderProfile();
   const [role, setRole] = React.useState<UserRole | null>(null);
 
   function reset() {
@@ -22,7 +24,11 @@ export function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     const user = await signInWithGoogle(role);
     onOpenChange(false);
     reset();
-    router.push(user.role === "cliente" ? "/perfil" : "/panel");
+    if (user.role === "cliente") {
+      router.push("/perfil");
+    } else {
+      router.push(onboarded ? "/panel" : "/panel/alta");
+    }
   }
 
   return (
