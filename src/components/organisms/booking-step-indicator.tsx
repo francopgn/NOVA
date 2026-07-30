@@ -1,12 +1,12 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Fecha", "Horario", "Duración", "Adicionales", "Resumen"];
+const BOOKING_STEPS = ["Fecha", "Horario", "Duración", "Adicionales", "Resumen"];
 
-export function BookingStepIndicator({ current }: { current: number }) {
+export function BookingStepIndicator({ current, steps = BOOKING_STEPS }: { current: number; steps?: string[] }) {
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
-      {STEPS.map((label, i) => {
+      {steps.map((label, i) => {
         const stepNum = i + 1;
         const done = stepNum < current;
         const active = stepNum === current;
@@ -23,7 +23,7 @@ export function BookingStepIndicator({ current }: { current: number }) {
               </div>
               <span className={cn("hidden text-[11px] sm:block", active ? "font-medium text-foreground" : "text-muted-foreground")}>{label}</span>
             </div>
-            {stepNum < STEPS.length && <div className={cn("h-px flex-1", done ? "bg-primary" : "bg-border")} />}
+            {stepNum < steps.length && <div className={cn("h-px flex-1", done ? "bg-primary" : "bg-border")} />}
           </div>
         );
       })}
