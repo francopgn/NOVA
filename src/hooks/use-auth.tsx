@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { CURRENT_CLIENT, CURRENT_PROFESSIONAL } from "@/lib/mock-data";
+import { CURRENT_CLIENT } from "@/lib/mock-data";
 
 export type UserRole = "cliente" | "profesional";
 
@@ -22,10 +22,20 @@ interface AuthContextValue {
 const AuthContext = React.createContext<AuthContextValue | null>(null);
 const STORAGE_KEY = "sessio:auth-user";
 
+// La cuenta de Google de un prestador nuevo es una identidad propia, separada
+// del perfil público que arma en el onboarding (igual que en la vida real: tu
+// cuenta de Google no es lo mismo que el nombre de tu estudio o consultorio).
+const GOOGLE_PROVIDER_IDENTITY = {
+  id: "google-provider-1",
+  name: "Franco Medina",
+  email: "franco.medina@gmail.com",
+  avatarUrl: "https://i.pravatar.cc/200?img=13",
+};
+
 function personaFor(role: UserRole): AuthUser {
   return role === "cliente"
     ? { id: CURRENT_CLIENT.id, name: CURRENT_CLIENT.name, email: CURRENT_CLIENT.email, avatarUrl: CURRENT_CLIENT.avatarUrl, role }
-    : { id: CURRENT_PROFESSIONAL.id, name: CURRENT_PROFESSIONAL.name, email: `${CURRENT_PROFESSIONAL.slug}@gmail.com`, avatarUrl: CURRENT_PROFESSIONAL.avatarUrl, role };
+    : { ...GOOGLE_PROVIDER_IDENTITY, role };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
