@@ -3,10 +3,13 @@ import * as React from "react";
 import Image from "next/image";
 import { Check, X, CalendarClock, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/molecules/confirm-dialog";
 import { formatPrice, cn } from "@/lib/utils";
 import type { Booking } from "@/lib/types";
 
 const DAY_OPTIONS = ["Hoy", "Mañana", "Pasado mañana", "Esta semana"];
+
+type ConfirmState = { kind: "accept" | "reject" } | { kind: "propose"; dateLabel: string; time: string } | null;
 
 export function SolicitudCard({
   booking,
@@ -22,11 +25,7 @@ export function SolicitudCard({
   const [proposing, setProposing] = React.useState(false);
   const [day, setDay] = React.useState(booking.dateLabel);
   const [time, setTime] = React.useState(booking.startTime);
-
-  function submitProposal() {
-    onPropose(day, time);
-    setProposing(false);
-  }
+  const [confirmState, setConfirmState] = React.useState<ConfirmState>(null);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
@@ -45,10 +44,10 @@ export function SolicitudCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" className="gap-1.5" onClick={onAccept}>
+        <Button size="sm" className="gap-1.5" onClick={() => setConfirmState({ kind: "accept" })}>
           <Check size={14} /> Aceptar
         </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={onReject}>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setConfirmState({ kind: "reject" })}>
           <X size={14} /> Rechazar
         </Button>
         <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setProposing((v) => !v)}>
@@ -80,11 +79,48 @@ export function SolicitudCard({
               onChange={(e) => setTime(e.target.value)}
               className="rounded-full border border-border bg-secondary/60 px-3 py-1.5 text-sm focus:outline-none"
             />
-            <Button size="sm" onClick={submitProposal}>Enviar propuesta</Button>
+            <Button size="sm" onClick={() => setConfirmState({ kind: "propose", dateLabel: day, time })}>
+              Enviar propuesta
+            </Button>
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">Le llega una notificación al cliente para que confirme el nuevo horario.</p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmState?.kind === "accept"}
+        onOpenChange={(v) => !v && setConfirmState(null)}
+        title="¿Aceptar esta reserva?"
+        description={`Se confirma la sesión con ${booking.clientName} para ${booking.dateLabel.toLowerCase()} a las ${booking.startTime}. Se le va a notificar de inmediato.`}
+        confirmLabel="Sí, aceptar"
+        onConfirm={onAccept}
+      />
+      <ConfirmDialog
+        open={confirmState?.kind === "reject"}
+        onOpenChange={(v) => !v && setConfirmState(null)}
+        title="¿Rechazar esta solicitud?"
+        description={`${booking.clientName} va a recibir una notificación de que no podés tomar esta sesión. Esta acción no se puede deshacer.`}
+        confirmLabel="Sí, rechazar"
+        variant="destructive"
+        onConfirm={onReject}
+      />
+      <ConfirmDialog
+        open={confirmState?.kind === "propose"}
+        onOpenChange={(v) => !v && setConfirmState(null)}
+        title="¿Enviar esta propuesta?"
+        description={
+          confirmState?.kind === "propose"
+            ? `Le vas a proponer a ${booking.clientName} mover la sesión a ${confirmState.dateLabel.toLowerCase()} a las ${confirmState.time}.`
+            : ""
+        }
+        confirmLabel="Sí, enviar"
+        onConfirm={() => {
+          if (confirmState?.kind === "propose") {
+            onPropose(confirmState.dateLabel, confirmState.time);
+            setProposing(false);
+          }
+        }}
+      />
     </div>
   );
 }

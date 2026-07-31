@@ -2,7 +2,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { StoryBubble } from "@/components/molecules/story-bubble";
 import type { Professional, Story } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -82,6 +82,8 @@ export function StoriesBar({ professionals, storiesByProfessional }: { professio
         <DialogContent hideClose className="aspect-[9/16] max-h-[85vh] w-full max-w-sm overflow-hidden !rounded-3xl border-0 bg-black p-0">
           {activeProf && activeStory && (
             <div className="relative h-full w-full">
+              <DialogTitle className="sr-only">Historia de {activeProf.name}</DialogTitle>
+              <DialogDescription className="sr-only">{activeStory.caption}</DialogDescription>
               <Image src={activeStory.imageUrl} alt={activeStory.caption} fill className="object-cover" />
               <div className="absolute inset-x-0 top-0 z-20 flex gap-1 p-2.5">
                 {activeStories.map((s, i) => (

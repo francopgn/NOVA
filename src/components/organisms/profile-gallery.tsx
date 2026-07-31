@@ -2,7 +2,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { Grid3x3, PlayCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 export function ProfileGallery({ images, name, videoThumbnailUrl }: { images: string[]; name: string; videoThumbnailUrl?: string }) {
@@ -39,6 +39,8 @@ export function ProfileGallery({ images, name, videoThumbnailUrl }: { images: st
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl border-0 bg-black p-0">
+          <DialogTitle className="sr-only">Galería de fotos de {name}</DialogTitle>
+          <DialogDescription className="sr-only">Foto {index + 1} de {all.length}</DialogDescription>
           <div className="relative aspect-video w-full">
             {all[index] && <Image src={all[index] as string} alt={name} fill className="object-contain" />}
             <button
