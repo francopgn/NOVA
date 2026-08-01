@@ -5,7 +5,7 @@ import {
   SESSION_TYPES,
   SPECIALTIES_BY_CATEGORY,
   ZONES,
-  type CategoryId,
+  type SeedCategoryId,
   type Language,
   type ServiceModeId,
   type SessionType,
@@ -59,7 +59,7 @@ const LAST_NAMES = [
   "Ibáñez", "Vega", "Correa", "Paz", "Cabrera", "Núñez", "Bianchi", "Ferreyra",
 ];
 
-const TITLES: Record<CategoryId, string[]> = {
+const TITLES: Record<SeedCategoryId, string[]> = {
   "coaches-ejecutivos": ["Coach Ejecutivo ICF", "Coach de Liderazgo", "Executive & Career Coach", "Coach Ontológico"],
   "terapeutas-holisticos": ["Terapeuta Holística", "Facilitadora en Reiki y Sonoterapia", "Terapeuta en Constelaciones", "Especialista en Ayurveda"],
   "consultores-financieros": ["Consultor Financiero CFA", "Asesora en Finanzas Personales", "Planificador Patrimonial", "Consultora en Inversiones"],
@@ -72,7 +72,7 @@ const TITLES: Record<CategoryId, string[]> = {
 
 const SPECIALTIES = SPECIALTIES_BY_CATEGORY;
 
-const TECHNIQUES: Record<CategoryId, string[]> = {
+const TECHNIQUES: Record<SeedCategoryId, string[]> = {
   "coaches-ejecutivos": ["Coaching ontológico", "Feedback 360°", "Modelo GROW", "Assessment de liderazgo"],
   "terapeutas-holisticos": ["PNF", "Mindfulness", "Reiki Usui", "Sonoterapia con cuencos"],
   "consultores-financieros": ["Planificación 50/30/20", "Análisis de cartera", "Proyección de flujo de caja"],
@@ -91,7 +91,7 @@ const ZONE_CENTER: Record<Zone, { lat: number; lng: number; detail: string }> = 
   Este: { lat: -34.598, lng: -58.31, detail: "Costa Este — Puerto Madero, La Boca, Barracas" },
 };
 
-const PRICE_RANGE: Record<CategoryId, [number, number]> = {
+const PRICE_RANGE: Record<SeedCategoryId, [number, number]> = {
   "coaches-ejecutivos": [22000, 55000],
   "terapeutas-holisticos": [12000, 30000],
   "consultores-financieros": [25000, 60000],

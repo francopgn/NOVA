@@ -10,7 +10,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type CategoryId =
+// Historically a fixed union of the 8 seed categories; now a plain string so
+// admin-created categories (see hooks/use-categories.tsx) can be assigned to
+// any field typed with CategoryId without touching this file again.
+export type CategoryId = string;
+
+// The original 8 seed categories, kept as a literal union ONLY for the
+// internal generator pools below (TITLES/TECHNIQUES/PRICE_RANGE/
+// SPECIALTIES_BY_CATEGORY) so those Records stay exhaustively typed.
+export type SeedCategoryId =
   | "coaches-ejecutivos"
   | "terapeutas-holisticos"
   | "consultores-financieros"
@@ -21,7 +29,7 @@ export type CategoryId =
   | "especialistas-bienestar";
 
 export interface Category {
-  id: CategoryId;
+  id: SeedCategoryId;
   label: string;
   icon: LucideIcon;
   blurb: string;
@@ -65,7 +73,7 @@ export function categoryById(id: string) {
   return CATEGORIES.find((c) => c.id === id);
 }
 
-export const SPECIALTIES_BY_CATEGORY: Record<CategoryId, string[]> = {
+export const SPECIALTIES_BY_CATEGORY: Record<SeedCategoryId, string[]> = {
   "coaches-ejecutivos": ["Liderazgo", "Toma de decisiones", "Comunicación directiva", "Gestión del cambio", "Plan de carrera", "Alta dirección"],
   "terapeutas-holisticos": ["Reiki", "Sonoterapia", "Constelaciones familiares", "Ayurveda", "Terapia floral", "Meditación guiada"],
   "consultores-financieros": ["Presupuesto personal", "Inversión bursátil", "Planificación jubilatoria", "Deuda y ahorro", "Finanzas para pymes", "Educación financiera"],
