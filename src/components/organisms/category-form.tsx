@@ -1,12 +1,10 @@
 "use client";
 import * as React from "react";
 import Image from "next/image";
-import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterSwitchRow } from "@/components/molecules/filter-switch-row";
-import { ICON_KEYS, iconFor } from "@/lib/icon-registry";
-import { COLOR_PALETTE } from "@/lib/color-palette";
-import { cn } from "@/lib/utils";
+import { IconPicker } from "@/components/molecules/icon-picker";
+import { ColorPicker } from "@/components/molecules/color-picker";
 import type { CategoryDraft } from "@/lib/category-types";
 
 export function CategoryForm({
@@ -95,45 +93,12 @@ export function CategoryForm({
 
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Ícono</p>
-        <div className="grid grid-cols-8 gap-2 sm:grid-cols-12">
-          {ICON_KEYS.map((key) => {
-            const Icon = iconFor(key);
-            return (
-              <button
-                key={key}
-                onClick={() => setIcon(key)}
-                aria-label={key}
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-xl border transition-colors",
-                  icon === key ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-white/5"
-                )}
-              >
-                <Icon size={16} />
-              </button>
-            );
-          })}
-        </div>
+        <IconPicker value={icon} onChange={setIcon} />
       </div>
 
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Color</p>
-        <div className="flex flex-wrap gap-2">
-          {COLOR_PALETTE.map((c) => (
-            <button
-              key={c.key}
-              onClick={() => setColor(c.key)}
-              aria-label={c.label}
-              title={c.label}
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full border-2 transition-transform",
-                color === c.key ? "scale-110 border-white/80" : "border-transparent"
-              )}
-              style={{ backgroundColor: c.hex }}
-            >
-              {color === c.key && <Check size={14} className="text-black/70" />}
-            </button>
-          ))}
-        </div>
+        <ColorPicker value={color} onChange={setColor} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
