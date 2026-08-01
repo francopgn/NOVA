@@ -10,7 +10,9 @@ import { BookingStepIndicator } from "@/components/organisms/booking-step-indica
 import { CategoryChip } from "@/components/molecules/category-chip";
 import { ToggleChipGroup } from "@/components/molecules/toggle-chip-group";
 import { Button } from "@/components/ui/button";
-import { CATEGORIES, LANGUAGES, SERVICE_MODES, SESSION_TYPES, ZONES, type CategoryId, type Language, type ServiceModeId, type SessionType, type Zone } from "@/lib/constants";
+import { LANGUAGES, SERVICE_MODES, SESSION_TYPES, ZONES, type CategoryId, type Language, type ServiceModeId, type SessionType, type Zone } from "@/lib/constants";
+import { useCategories } from "@/hooks/use-categories";
+import { iconFor } from "@/lib/icon-registry";
 import { formatPrice } from "@/lib/utils";
 import { AVATAR_PRESETS, type ProviderProfileDraft } from "@/lib/provider-profile";
 import { useAuth } from "@/hooks/use-auth";
@@ -29,6 +31,7 @@ export default function ProviderOnboardingPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { saveProfile, profile, onboarded } = useProviderProfile();
+  const { categories } = useCategories();
   const [step, setStep] = React.useState(1);
 
   const [name, setName] = React.useState(profile?.name ?? user?.name ?? "");
@@ -70,7 +73,7 @@ export default function ProviderOnboardingPage() {
     router.push("/panel");
   }
 
-  const cat = CATEGORIES.find((c) => c.id === categoryId);
+  const cat = categories.find((c) => c.id === categoryId);
   const isEditing = onboarded;
 
   return (
@@ -126,8 +129,8 @@ export default function ProviderOnboardingPage() {
 
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Categoría</p>
                   <div className="flex flex-wrap gap-2">
-                    {CATEGORIES.map((c) => (
-                      <CategoryChip key={c.id} category={c} active={categoryId === c.id} onClick={() => setCategoryId(c.id)} />
+                    {categories.filter((c) => c.active).map((c) => (
+                      <CategoryChip key={c.id} category={{ id: c.id, label: c.label, icon: iconFor(c.icon) }} active={categoryId === c.id} onClick={() => setCategoryId(c.id)} />
                     ))}
                   </div>
                 </div>
