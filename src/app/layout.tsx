@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { ProviderProfileProvider } from "@/hooks/use-provider-profile";
 import { ReviewsProvider } from "@/hooks/use-reviews";
 import { CategoriesProvider } from "@/hooks/use-categories";
+import { ServicesProvider } from "@/hooks/use-services";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ProviderProfileProvider>
               <ReviewsProvider>
                 <CategoriesProvider>
-                  <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+                  <ServicesProvider>
+                    <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+                  </ServicesProvider>
                 </CategoriesProvider>
               </ReviewsProvider>
             </ProviderProfileProvider>

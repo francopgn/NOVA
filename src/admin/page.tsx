@@ -30,13 +30,13 @@ export default function AdminHomePage() {
             </span>
           </Link>
 
-          <div className="rounded-3xl border border-dashed border-border p-6 opacity-60">
+          <Link href="/admin/categorias" className="group rounded-3xl border border-border bg-card p-6 transition-colors hover:border-primary/40 sm:col-span-2 lg:col-span-1">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-muted-foreground">
               <ListTree size={19} />
             </span>
             <p className="mt-4 font-semibold">Servicios por categoría</p>
-            <p className="mt-1 text-sm text-muted-foreground">Próxima etapa: la lista de servicios propia de cada rubro (ej. "Masaje relajante" dentro de Masajistas).</p>
-          </div>
+            <p className="mt-1 text-sm text-muted-foreground">Entrá a una categoría y accedé al botón de servicios para administrar su lista propia.</p>
+          </Link>
 
           <div className="rounded-3xl border border-dashed border-border p-6 opacity-60">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-muted-foreground">

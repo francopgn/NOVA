@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, ChevronUp, ChevronDown, Copy, Pencil, Home, Search } from "lucide-react";
+import { Plus, ChevronUp, ChevronDown, Copy, Pencil, Home, Search, ListTree } from "lucide-react";
 import { SiteShell } from "@/components/organisms/site-shell";
 import { AdminNav } from "@/components/organisms/admin-nav";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { iconFor } from "@/lib/icon-registry";
 import { colorHex } from "@/lib/color-palette";
 import { useCategories } from "@/hooks/use-categories";
+import { useServices } from "@/hooks/use-services";
 
 export default function AdminCategoriesPage() {
   const { categories, hydrated, toggleActive, duplicateCategory, updateCategory, moveCategory } = useCategories();
+  const { servicesFor } = useServices();
 
   return (
     <SiteShell>
@@ -87,6 +89,11 @@ export default function AdminCategoriesPage() {
                   <Switch checked={cat.active} onCheckedChange={() => toggleActive(cat.id)} />
 
                   <div className="flex items-center gap-1.5">
+                    <Link href={`/admin/categorias/${cat.id}/servicios`}>
+                      <Button size="icon-sm" variant="ghost" aria-label="Servicios" title={`${servicesFor(cat.id).length} servicios`}>
+                        <ListTree size={14} />
+                      </Button>
+                    </Link>
                     <Button size="icon-sm" variant="ghost" aria-label="Duplicar" onClick={() => duplicateCategory(cat.id)}>
                       <Copy size={14} />
                     </Button>
