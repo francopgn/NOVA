@@ -1,9 +1,15 @@
 "use client";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { Category } from "@/lib/constants";
+import type { LucideIcon } from "lucide-react";
 
-export function CategoryChip({ category, active, onClick }: { category: Category; active?: boolean; onClick?: () => void }) {
+export interface CategoryChipItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+export function CategoryChip({ category, active, onClick }: { category: CategoryChipItem; active?: boolean; onClick?: () => void }) {
   const Icon = category.icon;
   return (
     <motion.button
