@@ -5,8 +5,9 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { FilterSwitchRow } from "@/components/molecules/filter-switch-row";
 import { ToggleChipGroup } from "@/components/molecules/toggle-chip-group";
-import { ALL_SPECIALTIES, CATEGORIES, LANGUAGES, SESSION_TYPES, ZONES } from "@/lib/constants";
+import { ALL_SPECIALTIES, LANGUAGES, SESSION_TYPES, ZONES } from "@/lib/constants";
 import { DEFAULT_FILTERS } from "@/lib/api";
+import { useCategories } from "@/hooks/use-categories";
 import type { SearchFilters } from "@/lib/types";
 import { formatPrice, cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ export function FiltersPanel({
   onChange: (patch: Partial<SearchFilters>) => void;
   className?: string;
 }) {
+  const { searchCategories } = useCategories();
   return (
     <div className={cn("flex flex-col gap-5", className)}>
       <div className="flex items-center justify-between">
@@ -31,9 +33,9 @@ export function FiltersPanel({
       <section>
         <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Categoría</p>
         <ToggleChipGroup
-          options={CATEGORIES.map((c) => c.label)}
-          value={CATEGORIES.filter((c) => filters.categoryIds.includes(c.id)).map((c) => c.label)}
-          onChange={(labels) => onChange({ categoryIds: CATEGORIES.filter((c) => labels.includes(c.label)).map((c) => c.id) })}
+          options={searchCategories.map((c) => c.label)}
+          value={searchCategories.filter((c) => filters.categoryIds.includes(c.id)).map((c) => c.label)}
+          onChange={(labels) => onChange({ categoryIds: searchCategories.filter((c) => labels.includes(c.label)).map((c) => c.id) })}
         />
       </section>
 
