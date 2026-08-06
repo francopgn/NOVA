@@ -10,13 +10,16 @@ import { BookingStepIndicator } from "@/components/organisms/booking-step-indica
 import { CategoryChip } from "@/components/molecules/category-chip";
 import { ToggleChipGroup } from "@/components/molecules/toggle-chip-group";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { LANGUAGES, SERVICE_MODES, SESSION_TYPES, ZONES, type CategoryId, type Language, type ServiceModeId, type SessionType, type Zone } from "@/lib/constants";
 import { useCategories } from "@/hooks/use-categories";
+import { useServices } from "@/hooks/use-services";
+import { useCustomFields } from "@/hooks/use-custom-fields";
 import { iconFor } from "@/lib/icon-registry";
 import { formatPrice } from "@/lib/utils";
 import { AVATAR_PRESETS, type ProviderProfileDraft } from "@/lib/provider-profile";
 import { useAuth } from "@/hooks/use-auth";
-import { useProviderProfile } from "@/hooks/use-provider-profile";
+import { useSession } from "next-auth/react";
 
 const STEPS = ["Datos básicos", "Sobre vos", "Servicios", "Tarifas", "Resumen"];
 
@@ -30,8 +33,23 @@ const DEFAULT_PRICING: ProviderProfileDraft["pricing"] = [
 export default function ProviderOnboardingPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { saveProfile, profile, onboarded } = useProviderProfile();
+  const { update: updateSession } = useSession();
+  const [profile, setProfile] = React.useState<(ProviderProfileDraft & { id?: string }) | null>(null);
+  const [profileLoaded, setProfileLoaded] = React.useState(false);
+  const [publishing, setPublishing] = React.useState(false);
+  const onboarded = !!profile;
+
+  React.useEffect(() => {
+    fetch("/api/professionals/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setProfile(data))
+      .catch(() => setProfile(null))
+      .finally(() => setProfileLoaded(true));
+  }, []);
+
   const { categories } = useCategories();
+  const { activeServicesFor } = useServices();
+  const { activeFieldsFor } = useCustomFields();
   const [step, setStep] = React.useState(1);
 
   const [name, setName] = React.useState(profile?.name ?? user?.name ?? "");
@@ -47,16 +65,56 @@ export default function ProviderOnboardingPage() {
   const [sessionTypes, setSessionTypes] = React.useState<SessionType[]>(profile?.sessionTypes ?? ["Individual"]);
   const [currency, setCurrency] = React.useState<"ARS" | "USD">(profile?.currency ?? "ARS");
   const [pricing, setPricing] = React.useState(profile?.pricing ?? DEFAULT_PRICING);
+  const [selectedServiceIds, setSelectedServiceIds] = React.useState<string[]>(profile?.selectedServiceIds ?? []);
+  const [customFieldValues, setCustomFieldValues] = React.useState<Record<string, string | boolean>>(profile?.customFieldValues ?? {});
+  const categoryServices = categoryId ? activeServicesFor(categoryId) : [];
+  const categoryFields = categoryId ? activeFieldsFor(categoryId) : [];
+
+  const prevCategoryRef = React.useRef(categoryId);
+
+  // El perfil llega de una llamada a la API (asincrónica), así que no puede
+  // precargar los campos como valor inicial de useState — hay que
+  // sincronizarlos acá cuando termina de cargar.
+  React.useEffect(() => {
+    if (!profile) return;
+    setName(profile.name);
+    setTitle(profile.title);
+    setCategoryId(profile.categoryId);
+    prevCategoryRef.current = profile.categoryId; // evita que el efecto de abajo borre lo que acabamos de cargar
+    setAvatarUrl(profile.avatarUrl);
+    setBio(profile.bio);
+    setAge(profile.age);
+    setYearsExperience(profile.yearsExperience);
+    setZone(profile.zone);
+    setLanguages(profile.languages);
+    setServiceModes(profile.serviceModes);
+    setSessionTypes(profile.sessionTypes);
+    setCurrency(profile.currency);
+    setPricing(profile.pricing);
+    setSelectedServiceIds(profile.selectedServiceIds);
+    setCustomFieldValues(profile.customFieldValues);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
+
+  React.useEffect(() => {
+    if (prevCategoryRef.current !== null && prevCategoryRef.current !== categoryId) {
+      setSelectedServiceIds([]);
+      setCustomFieldValues({});
+    }
+    prevCategoryRef.current = categoryId;
+  }, [categoryId]);
 
   const avatarOptions = React.useMemo(
     () => (user?.avatarUrl ? [user.avatarUrl, ...AVATAR_PRESETS.filter((a) => a !== user.avatarUrl)] : AVATAR_PRESETS),
     [user?.avatarUrl]
   );
 
+  const requiredFieldsMissing = categoryFields.some((f) => f.required && !customFieldValues[f.id]);
+
   const canContinue =
     (step === 1 && name.trim().length > 1 && title.trim().length > 1 && !!categoryId) ||
     (step === 2 && zone && languages.length > 0) ||
-    (step === 3 && serviceModes.length > 0 && sessionTypes.length > 0) ||
+    (step === 3 && serviceModes.length > 0 && sessionTypes.length > 0 && !requiredFieldsMissing) ||
     step === 4 ||
     step === 5;
 
@@ -64,13 +122,28 @@ export default function ProviderOnboardingPage() {
     setPricing((prev) => prev.map((p) => (p.duration === duration ? { ...p, price } : p)));
   }
 
-  function handlePublish() {
+  async function handlePublish() {
     if (!categoryId) return;
-    saveProfile({
-      name, title, categoryId, avatarUrl, bio: bio || "Acompaño procesos personalizados, adaptados a tu momento y objetivos.",
-      age, yearsExperience, zone, languages, serviceModes, sessionTypes, currency, pricing,
-    });
-    router.push("/panel");
+    setPublishing(true);
+    try {
+      await fetch("/api/professionals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name, title, categoryId, avatarUrl,
+          bio: bio || "Acompaño procesos personalizados, adaptados a tu momento y objetivos.",
+          age, yearsExperience, zone, languages, serviceModes, sessionTypes, currency, pricing,
+          selectedServiceIds, customFieldValues,
+        }),
+      });
+      // Refresca el rol en la sesión activa (cliente -> profesional) sin
+      // necesidad de cerrar sesión y volver a entrar — ver el callback jwt
+      // en lib/auth.ts.
+      await updateSession();
+      router.push("/panel");
+    } finally {
+      setPublishing(false);
+    }
   }
 
   const cat = categories.find((c) => c.id === categoryId);
@@ -201,6 +274,86 @@ export default function ProviderOnboardingPage() {
 
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de sesión</p>
                   <ToggleChipGroup options={SESSION_TYPES} value={sessionTypes} onChange={setSessionTypes} />
+
+                  {categoryServices.length > 0 && (
+                    <div className="mt-5">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Servicios de {cat?.label ?? "tu rubro"} que ofrecés
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {categoryServices.map((svc) => (
+                          <button
+                            key={svc.id}
+                            onClick={() =>
+                              setSelectedServiceIds((prev) => (prev.includes(svc.id) ? prev.filter((id) => id !== svc.id) : [...prev, svc.id]))
+                            }
+                            className={`rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
+                              selectedServiceIds.includes(svc.id) ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-white/5"
+                            }`}
+                          >
+                            {svc.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {categoryFields.length > 0 && (
+                    <div className="mt-5">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Datos propios de {cat?.label ?? "tu rubro"}
+                      </p>
+                      <div className="flex flex-col gap-3 rounded-2xl border border-border p-4">
+                        {categoryFields.map((field) => (
+                          <div key={field.id}>
+                            {field.type === "boolean" && (
+                              <label className="flex cursor-pointer items-center justify-between gap-4 py-1">
+                                <span className="text-sm">
+                                  {field.label}{field.required && <span className="text-primary"> *</span>}
+                                </span>
+                                <Switch
+                                  checked={!!customFieldValues[field.id]}
+                                  onCheckedChange={(v) => setCustomFieldValues((prev) => ({ ...prev, [field.id]: v }))}
+                                />
+                              </label>
+                            )}
+                            {field.type === "text" && (
+                              <label className="flex flex-col gap-1.5 py-1">
+                                <span className="text-sm">
+                                  {field.label}{field.required && <span className="text-primary"> *</span>}
+                                </span>
+                                <input
+                                  value={(customFieldValues[field.id] as string) ?? ""}
+                                  onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                                  className="rounded-xl border border-border bg-secondary/50 px-3.5 py-2 text-sm focus:outline-none"
+                                />
+                              </label>
+                            )}
+                            {field.type === "select" && (
+                              <label className="flex flex-col gap-1.5 py-1">
+                                <span className="text-sm">
+                                  {field.label}{field.required && <span className="text-primary"> *</span>}
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {field.options.map((opt) => (
+                                    <button
+                                      key={opt}
+                                      onClick={() => setCustomFieldValues((prev) => ({ ...prev, [field.id]: opt }))}
+                                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        customFieldValues[field.id] === opt ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-white/5"
+                                      }`}
+                                    >
+                                      {opt}
+                                    </button>
+                                  ))}
+                                </div>
+                              </label>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -257,6 +410,19 @@ export default function ProviderOnboardingPage() {
                     <SummaryRow label="Idiomas" value={languages.join(", ") || "—"} />
                     <SummaryRow label="Modalidades" value={SERVICE_MODES.filter((m) => serviceModes.includes(m.id)).map((m) => m.label).join(", ") || "—"} />
                     <SummaryRow label="Tipo de sesión" value={sessionTypes.join(", ") || "—"} />
+                    {categoryServices.length > 0 && (
+                      <SummaryRow
+                        label={`Servicios de ${cat?.label ?? "rubro"}`}
+                        value={categoryServices.filter((s) => selectedServiceIds.includes(s.id)).map((s) => s.name).join(", ") || "Ninguno seleccionado"}
+                      />
+                    )}
+                    {categoryFields.map((field) => (
+                      <SummaryRow
+                        key={field.id}
+                        label={field.label}
+                        value={field.type === "boolean" ? (customFieldValues[field.id] ? "Sí" : "No") : (customFieldValues[field.id] as string) || "—"}
+                      />
+                    ))}
                     <SummaryRow label="Precio desde" value={formatPrice(pricing[0]?.price ?? 0, currency)} />
                   </div>
                 </div>
@@ -274,8 +440,8 @@ export default function ProviderOnboardingPage() {
               Continuar
             </Button>
           ) : (
-            <Button size="lg" className="gap-1.5" onClick={handlePublish}>
-              <Check size={16} /> {isEditing ? "Guardar cambios" : "Publicar mi perfil"}
+            <Button size="lg" className="gap-1.5" disabled={publishing} onClick={handlePublish}>
+              <Check size={16} /> {publishing ? "Guardando..." : isEditing ? "Guardar cambios" : "Publicar mi perfil"}
             </Button>
           )}
         </div>

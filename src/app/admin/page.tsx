@@ -38,13 +38,13 @@ export default function AdminHomePage() {
             <p className="mt-1 text-sm text-muted-foreground">Entrá a una categoría y accedé al botón de servicios para administrar su lista propia.</p>
           </Link>
 
-          <div className="rounded-3xl border border-dashed border-border p-6 opacity-60">
+          <Link href="/admin/categorias" className="group rounded-3xl border border-border bg-card p-6 transition-colors hover:border-primary/40">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-muted-foreground">
               <SlidersHorizontal size={19} />
             </span>
             <p className="mt-4 font-semibold">Campos personalizados</p>
-            <p className="mt-1 text-sm text-muted-foreground">Próxima etapa: campos propios por rubro que alimentan el alta de prestador y los filtros del buscador.</p>
-          </div>
+            <p className="mt-1 text-sm text-muted-foreground">Entrá a una categoría para definir sus campos propios (ej. "Trabaja con gas", "Matrícula").</p>
+          </Link>
         </div>
       </div>
     </SiteShell>

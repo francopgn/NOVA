@@ -26,9 +26,7 @@ export function AdminNav() {
           </Link>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-        <span className="rounded-full border border-dashed border-border px-3 py-1.5">Campos personalizados (próximamente)</span>
-      </div>
+      <p className="text-xs text-muted-foreground">Entrá a una categoría para administrar sus servicios y campos personalizados.</p>
     </div>
   );
 }

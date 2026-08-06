@@ -8,19 +8,28 @@ import { ToggleChipGroup } from "@/components/molecules/toggle-chip-group";
 import { ALL_SPECIALTIES, LANGUAGES, SESSION_TYPES, ZONES } from "@/lib/constants";
 import { DEFAULT_FILTERS } from "@/lib/api";
 import { useCategories } from "@/hooks/use-categories";
+import { useCustomFields } from "@/hooks/use-custom-fields";
 import type { SearchFilters } from "@/lib/types";
 import { formatPrice, cn } from "@/lib/utils";
 
 export function FiltersPanel({
   filters,
   onChange,
+  categoryFieldFilters,
+  onCategoryFieldFilterChange,
   className,
 }: {
   filters: SearchFilters;
   onChange: (patch: Partial<SearchFilters>) => void;
+  categoryFieldFilters: Record<string, string | boolean>;
+  onCategoryFieldFilterChange: (fieldId: string, value: string | boolean | undefined) => void;
   className?: string;
 }) {
   const { searchCategories } = useCategories();
+  const { activeFieldsFor } = useCustomFields();
+  const soleCategory = filters.categoryIds.length === 1 ? filters.categoryIds[0] : null;
+  const dynamicFields = soleCategory ? activeFieldsFor(soleCategory).filter((f) => f.type !== "text") : [];
+  const soleCategoryLabel = searchCategories.find((c) => c.id === soleCategory)?.label;
   return (
     <div className={cn("flex flex-col gap-5", className)}>
       <div className="flex items-center justify-between">
@@ -38,6 +47,42 @@ export function FiltersPanel({
           onChange={(labels) => onChange({ categoryIds: searchCategories.filter((c) => labels.includes(c.label)).map((c) => c.id) })}
         />
       </section>
+
+      {dynamicFields.length > 0 && (
+        <section className="rounded-2xl border border-primary/25 bg-primary/[0.04] p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-primary">Filtros de {soleCategoryLabel}</p>
+          <div className="flex flex-col gap-3">
+            {dynamicFields.map((field) =>
+              field.type === "boolean" ? (
+                <FilterSwitchRow
+                  key={field.id}
+                  label={field.label}
+                  checked={!!categoryFieldFilters[field.id]}
+                  onCheckedChange={(v) => onCategoryFieldFilterChange(field.id, v ? true : undefined)}
+                />
+              ) : (
+                <div key={field.id}>
+                  <p className="mb-1.5 text-sm">{field.label}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {field.options.map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => onCategoryFieldFilterChange(field.id, categoryFieldFilters[field.id] === opt ? undefined : opt)}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                          categoryFieldFilters[field.id] === opt ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-white/5"
+                        )}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </section>
+      )}
 
       <Separator />
 

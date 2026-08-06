@@ -4,11 +4,12 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { FavoritesProvider } from "@/hooks/use-favorites";
-import { AuthProvider } from "@/hooks/use-auth";
+import { SessionProvider } from "next-auth/react";
 import { ProviderProfileProvider } from "@/hooks/use-provider-profile";
 import { ReviewsProvider } from "@/hooks/use-reviews";
 import { CategoriesProvider } from "@/hooks/use-categories";
 import { ServicesProvider } from "@/hooks/use-services";
+import { CustomFieldsProvider } from "@/hooks/use-custom-fields";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
@@ -28,17 +29,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es-AR" className={cn("dark", GeistSans.variable, GeistMono.variable)} suppressHydrationWarning>
       <body className="min-h-screen font-sans">
         <FavoritesProvider>
-          <AuthProvider>
+          <SessionProvider>
             <ProviderProfileProvider>
               <ReviewsProvider>
                 <CategoriesProvider>
                   <ServicesProvider>
-                    <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+                    <CustomFieldsProvider>
+                      <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+                    </CustomFieldsProvider>
                   </ServicesProvider>
                 </CategoriesProvider>
               </ReviewsProvider>
             </ProviderProfileProvider>
-          </AuthProvider>
+          </SessionProvider>
         </FavoritesProvider>
       </body>
     </html>
