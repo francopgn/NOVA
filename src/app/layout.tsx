@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { FavoritesProvider } from "@/hooks/use-favorites";
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider } from "@/components/session-provider";
 import { ProviderProfileProvider } from "@/hooks/use-provider-profile";
 import { ReviewsProvider } from "@/hooks/use-reviews";
 import { CategoriesProvider } from "@/hooks/use-categories";
