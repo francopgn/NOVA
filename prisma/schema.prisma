@@ -1,0 +1,385 @@
+// Schema de base de datos de Sessio — Fase B0.
+//
+// Este archivo describe la base, pero no la crea: hace falta un DATABASE_URL real
+// (ver .env.example) y correr `npx prisma migrate dev --name init` para aplicarlo.
+// Ver docs/ARQUITECTURA_BACKEND.md para el plan completo por fases.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Usuarios
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  cliente
+  profesional
+  admin
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String
+  image         String?
+  role          UserRole  @default(cliente)
+  createdAt     DateTime  @default(now())
+
+  accounts Account[]
+  sessions Session[]
+
+  professional  Professional? // presente solo si role = profesional
+  bookings      Booking[]        @relation("ClientBookings")
+  reviews       Review[]
+  notifications Notification[]
+  favorites     Favorite[]
+  proposalsSent     BookingProposal[] @relation("ProposalsSent")
+  proposalsReceived BookingProposal[] @relation("ProposalsReceived")
+}
+
+// Modelos requeridos por el adapter de Prisma de NextAuth — no se tocan a mano,
+// los administra la librería. Ver https://authjs.dev/reference/adapter/prisma
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Favorite {
+  id             String       @id @default(cuid())
+  clientId       String
+  client         User         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([clientId, professionalId])
+}
+
+// ---------------------------------------------------------------------------
+// Categorías, servicios y campos personalizados (Fase 6, ahora persistentes)
+// ---------------------------------------------------------------------------
+
+model Category {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  label           String
+  blurb           String
+  icon            String
+  color           String
+  coverImageUrl   String
+  seoTitle        String
+  seoDescription  String
+  order           Int      @default(0)
+  active          Boolean  @default(true)
+  showInHome      Boolean  @default(true)
+  showInSearch    Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  professionals Professional[]
+  services      Service[]
+  customFields  CustomField[]
+}
+
+model Service {
+  id                 String   @id @default(cuid())
+  categoryId         String
+  category           Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name               String
+  icon               String
+  description        String
+  suggestedPrice     Int?
+  suggestedDuration  Int?     // 30 | 45 | 60 | 90
+  color              String
+  active             Boolean  @default(true)
+  order              Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  professionals ProfessionalService[]
+}
+
+enum CustomFieldType {
+  boolean
+  text
+  select
+}
+
+model CustomField {
+  id         String          @id @default(cuid())
+  categoryId String
+  category   Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  label      String
+  type       CustomFieldType
+  options    String[]        @default([]) // solo usado si type = select
+  required   Boolean         @default(false)
+  active     Boolean         @default(true)
+  order      Int             @default(0)
+  createdAt  DateTime        @default(now())
+
+  values CustomFieldValue[]
+}
+
+// ---------------------------------------------------------------------------
+// Perfil de prestador
+// ---------------------------------------------------------------------------
+
+enum AvailabilityStatus {
+  disponible
+  ocupada
+  desconectado
+}
+
+model Professional {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug              String             @unique
+  name              String
+  avatarUrl         String?
+  title             String
+  categoryId        String
+  category          Category           @relation(fields: [categoryId], references: [id])
+  bio               String
+  age               Int?
+  yearsExperience   Int?
+  zone              String
+  coverageDetail    String?
+  languages         String[]           @default([])
+  serviceModes      String[]           @default([])
+  sessionTypes      String[]           @default([])
+  currency          String             @default("ARS")
+  status            AvailabilityStatus @default(desconectado)
+  responseTimeMin   Int                @default(30)
+  verifiedIdentidad Boolean            @default(false)
+  verifiedProfesional Boolean          @default(false)
+  premium           Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  pricing        PricingOption[]
+  services       ProfessionalService[]
+  customValues   CustomFieldValue[]
+  media          Media[]
+  stories        Story[]
+  bookings       Booking[]
+  favorites      Favorite[]
+  reviews        Review[]
+  promotions     Promotion[]
+  notifications  Notification[]
+}
+
+model PricingOption {
+  id             String       @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  duration       Int // 30 | 45 | 60 | 90
+  price          Int
+
+  @@unique([professionalId, duration])
+}
+
+model ProfessionalService {
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  serviceId      String
+  service        Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, serviceId])
+}
+
+model CustomFieldValue {
+  id             String       @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  customFieldId  String
+  customField    CustomField  @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  valueText      String?
+  valueBoolean   Boolean?
+
+  @@unique([professionalId, customFieldId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase B6/B7 — Media y Stories
+// ---------------------------------------------------------------------------
+
+enum MediaType {
+  foto
+  video
+}
+
+model Media {
+  id             String       @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  url            String
+  type           MediaType
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+}
+
+model Story {
+  id             String       @id @default(cuid())
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  mediaUrl       String
+  type           MediaType
+  caption        String?
+  createdAt      DateTime     @default(now())
+  expiresAt      DateTime // createdAt + 24 h, calculado al crear
+}
+
+// ---------------------------------------------------------------------------
+// Fase B3 — Reservas y propuestas
+// ---------------------------------------------------------------------------
+
+enum BookingStatus {
+  pendiente
+  confirmada
+  rechazada
+  reprogramada
+  completada
+  cancelada
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  professionalId String
+  professional   Professional  @relation(fields: [professionalId], references: [id])
+  clientId       String
+  client         User          @relation("ClientBookings", fields: [clientId], references: [id])
+  date           DateTime
+  startTime      String
+  duration       Int
+  sessionType    String
+  mode           String
+  status         BookingStatus @default(pendiente)
+  totalPrice     Int
+  currency       String        @default("ARS")
+  paymentMethod  String?
+  createdAt      DateTime      @default(now())
+
+  proposals     BookingProposal[]
+  notifications Notification[]
+  review        Review?
+}
+
+enum ProposalStatus {
+  pendiente
+  aceptada
+  rechazada
+  expirada
+}
+
+model BookingProposal {
+  id                   String         @id @default(cuid())
+  bookingId            String
+  booking              Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fromUserId           String
+  fromUser             User           @relation("ProposalsSent", fields: [fromUserId], references: [id])
+  toUserId             String
+  toUser               User           @relation("ProposalsReceived", fields: [toUserId], references: [id])
+  proposedDate         DateTime
+  proposedStartTime    String
+  status               ProposalStatus @default(pendiente)
+  respondsToProposalId String?
+  createdAt            DateTime       @default(now())
+  expiresAt            DateTime // propuesta "pospuesta" = expirada sin respuesta
+}
+
+// ---------------------------------------------------------------------------
+// Notificaciones, reseñas, promociones
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  nueva_solicitud
+  reserva_aceptada
+  reserva_rechazada
+  reprogramacion
+  nueva_propuesta
+  promocion
+  historia
+  disponible
+}
+
+model Notification {
+  id             String            @id @default(cuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           NotificationType
+  title          String
+  message        String
+  read           Boolean           @default(false)
+  bookingId      String?
+  booking        Booking?          @relation(fields: [bookingId], references: [id])
+  professionalId String?
+  professional   Professional?     @relation(fields: [professionalId], references: [id])
+  createdAt      DateTime          @default(now())
+}
+
+model Review {
+  id                   String       @id @default(cuid())
+  professionalId       String
+  professional         Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  authorId             String
+  author               User         @relation(fields: [authorId], references: [id])
+  bookingId            String?      @unique
+  booking              Booking?     @relation(fields: [bookingId], references: [id])
+  ratingCalidad        Int
+  ratingPuntualidad    Int
+  ratingComunicacion   Int
+  ratingProfesionalismo Int
+  ratingPrecioCalidad  Int
+  comment              String
+  createdAt            DateTime     @default(now())
+}
+
+model Promotion {
+  id              String       @id @default(cuid())
+  professionalId  String
+  professional    Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  kind            String
+  title           String
+  description     String
+  discountLabel   String
+  active          Boolean      @default(true)
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+}
