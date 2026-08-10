@@ -1,8 +1,9 @@
-import { CalendarCheck, CalendarClock, CalendarX, Tag, Sparkle, UserCheck, Clock } from "lucide-react";
+import { CalendarCheck, CalendarClock, CalendarX, Tag, Sparkle, UserCheck, Clock, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppNotification, NotificationType } from "@/lib/types";
 
 const ICONS: Record<NotificationType, React.ElementType> = {
+  "nueva-solicitud": Inbox,
   "reserva-aceptada": CalendarCheck,
   "reserva-rechazada": CalendarX,
   reprogramacion: CalendarClock,
@@ -13,6 +14,7 @@ const ICONS: Record<NotificationType, React.ElementType> = {
 };
 
 const COLORS: Record<NotificationType, string> = {
+  "nueva-solicitud": "bg-primary/15 text-primary",
   "reserva-aceptada": "bg-status-available/15 text-status-available",
   "reserva-rechazada": "bg-destructive/15 text-destructive",
   reprogramacion: "bg-status-busy/15 text-status-busy",
