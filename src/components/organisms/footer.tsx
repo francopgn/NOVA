@@ -35,9 +35,14 @@ export function Footer() {
         ))}
       </div>
       <div className="border-t border-white/5 py-6">
-        <p className="container text-xs text-muted-foreground">
-          © 2026 Sessio. Interfaz de demostración con datos ficticios — todos los profesionales y reseñas son simulados.
-        </p>
+        <div className="container flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            © 2026 Sessio. Interfaz de demostración con datos ficticios — todos los profesionales y reseñas son simulados.
+          </p>
+          <Link href="/admin" className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+            Administración
+          </Link>
+        </div>
       </div>
     </footer>
   );

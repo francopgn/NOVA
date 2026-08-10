@@ -1,18 +1,14 @@
 "use client";
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { User, Briefcase, ChevronLeft, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { GoogleIcon } from "@/components/atoms/google-icon";
 import { useAuth, type UserRole } from "@/hooks/use-auth";
-import { useProviderProfile } from "@/hooks/use-provider-profile";
 import { cn } from "@/lib/utils";
 
 export function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const router = useRouter();
   const { signInWithGoogle, loading } = useAuth();
-  const { onboarded } = useProviderProfile();
   const [role, setRole] = React.useState<UserRole | null>(null);
 
   function reset() {
@@ -21,14 +17,9 @@ export function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange
 
   async function handleGoogle() {
     if (!role) return;
-    const user = await signInWithGoogle(role);
-    onOpenChange(false);
-    reset();
-    if (user.role === "cliente") {
-      router.push("/perfil");
-    } else {
-      router.push(onboarded ? "/panel" : "/panel/alta");
-    }
+    // Dispara el redirect a Google — esta pantalla se desmonta acá mismo,
+    // NextAuth te trae de vuelta a /perfil o /panel/alta según el rol.
+    await signInWithGoogle(role);
   }
 
   return (
