@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { SiteShell } from "@/components/organisms/site-shell";
 import { AdminNav } from "@/components/organisms/admin-nav";
-import { CustomFieldForm } from "@/components/organisms/custom-field-form";
+import { CustomFieldForm } from "../../../../../../../components/organisms/custom-field-form";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCustomFields } from "@/hooks/use-custom-fields";
+import { useCustomFields } from "../../../../../../../hooks/use-custom-fields";
 
 export default function EditCustomFieldPage({ params }: { params: { id: string; fieldId: string } }) {
   const router = useRouter();
