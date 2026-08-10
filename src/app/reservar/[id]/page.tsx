@@ -10,7 +10,9 @@ import { BookingStepIndicator } from "@/components/organisms/booking-step-indica
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getProfessional, createBooking } from "@/lib/api";
+import { getProfessional } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthDialog } from "@/components/organisms/auth-dialog";
 import { formatPrice, cn } from "@/lib/utils";
 import type { Professional } from "@/lib/types";
 import type { ServiceModeId } from "@/lib/constants";
@@ -29,7 +31,7 @@ const MODE_LABEL: Record<ServiceModeId, string> = {
 };
 
 function nextDays(n: number) {
-  const out: { label: string; sub: string; dateLabel: string }[] = [];
+  const out: { label: string; sub: string; dateLabel: string; iso: string }[] = [];
   const today = new Date();
   const WD = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   for (let i = 0; i < n; i++) {
@@ -39,6 +41,7 @@ function nextDays(n: number) {
       label: i === 0 ? "Hoy" : i === 1 ? "Mañana" : WD[d.getDay()] as string,
       sub: `${d.getDate()}`,
       dateLabel: i === 0 ? "Hoy" : i === 1 ? "Mañana" : `${WD[d.getDay()]} ${d.getDate()}`,
+      iso: d.toISOString().slice(0, 10),
     });
   }
   return out;
@@ -58,9 +61,12 @@ function timeSlots() {
 
 export default function BookingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { user } = useAuth();
+  const [authOpen, setAuthOpen] = React.useState(false);
   const [professional, setProfessional] = React.useState<Professional | null>(null);
   const [step, setStep] = React.useState(1);
   const [dateLabel, setDateLabel] = React.useState<string | null>(null);
+  const [dateISO, setDateISO] = React.useState<string | null>(null);
   const [time, setTime] = React.useState<string | null>(null);
   const [duration, setDuration] = React.useState<30 | 45 | 60 | 90 | null>(null);
   const [customDuration, setCustomDuration] = React.useState("");
@@ -107,20 +113,30 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     step === 5;
 
   async function handleConfirm() {
-    if (!professional || !dateLabel || !time || !finalDuration || !paymentMethod) return;
+    if (!professional || !dateLabel || !dateISO || !time || !finalDuration || !paymentMethod) return;
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
     setSubmitting(true);
-    await createBooking({
-      professionalId: professional.id,
-      dateLabel,
-      startTime: time,
-      duration: (duration ?? 60) as 30 | 45 | 60 | 90,
-      sessionType: professional.sessionTypes[0] ?? "Individual",
-      mode: professional.serviceModes[0] ?? "virtual",
-      addOnIds,
-      paymentMethod,
-    });
-    setSubmitting(false);
-    setConfirmed(true);
+    try {
+      await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          professionalSlug: professional.slug,
+          date: dateISO,
+          startTime: time,
+          duration: duration ?? 60,
+          sessionType: professional.sessionTypes[0] ?? "Individual",
+          mode: professional.serviceModes[0] ?? "virtual",
+          paymentMethod,
+        }),
+      });
+      setConfirmed(true);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (confirmed) {
@@ -169,7 +185,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     {days.map((d) => (
                       <button
                         key={d.dateLabel}
-                        onClick={() => setDateLabel(d.dateLabel)}
+                        onClick={() => { setDateLabel(d.dateLabel); setDateISO(d.iso); }}
                         className={cn(
                           "flex flex-col items-center gap-1 rounded-2xl border py-3 transition-colors",
                           dateLabel === d.dateLabel ? "border-primary bg-primary/15 text-primary" : "border-border hover:bg-white/5"
@@ -353,12 +369,16 @@ export default function BookingPage({ params }: { params: { id: string } }) {
               Continuar
             </Button>
           ) : (
-            <Button size="lg" className="gap-1.5" disabled={submitting || !paymentMethod} onClick={handleConfirm}>
-              <Check size={16} /> {submitting ? "Confirmando..." : "Confirmar reserva"}
-            </Button>
+            <div className="flex flex-col items-end gap-1.5">
+              <Button size="lg" className="gap-1.5" disabled={submitting || !paymentMethod} onClick={handleConfirm}>
+                <Check size={16} /> {submitting ? "Confirmando..." : "Confirmar reserva"}
+              </Button>
+              {!user && <p className="text-xs text-muted-foreground">Te vamos a pedir iniciar sesión para confirmar.</p>}
+            </div>
           )}
         </div>
       </div>
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </SiteShell>
   );
 }

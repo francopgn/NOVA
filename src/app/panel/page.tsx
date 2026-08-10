@@ -7,29 +7,57 @@ import { DashboardNav } from "@/components/organisms/dashboard-nav";
 import { AvailabilityToggle } from "@/components/organisms/availability-toggle";
 import { RevenueChart } from "@/components/organisms/revenue-chart";
 import { RankingExplainer } from "@/components/organisms/ranking-explainer";
+import { RubroPanelSection } from "@/components/organisms/rubro-panel-section";
 import { StatCard } from "@/components/molecules/stat-card";
 import { BookingRow } from "@/components/molecules/booking-row";
 import { SolicitudCard } from "@/components/organisms/solicitud-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getBookings, getCurrentProfessional } from "@/lib/api";
+import { getCurrentProfessional } from "@/lib/api";
 import { formatAmount } from "@/lib/utils";
-import { mergeProviderProfile } from "@/lib/provider-profile";
-import { useProviderProfile } from "@/hooks/use-provider-profile";
+import { mergeProviderProfile, type ProviderProfileDraft } from "@/lib/provider-profile";
+import { mapApiBooking, labelToISO } from "@/lib/booking-adapters";
 import type { Booking, Professional } from "@/lib/types";
 
 export default function ProfessionalDashboardPage() {
   const [seed, setSeed] = React.useState<Professional | null>(null);
   const [bookings, setBookings] = React.useState<Booking[] | null>(null);
-  const { profile, onboarded, hydrated } = useProviderProfile();
+  const [profile, setProfile] = React.useState<ProviderProfileDraft | null>(null);
+  const [hydrated, setHydrated] = React.useState(false);
+  const onboarded = !!profile;
+
+  function refetchBookings() {
+    fetch("/api/bookings?as=profesional")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setBookings(data.map(mapApiBooking)))
+      .catch(() => setBookings([]));
+  }
 
   React.useEffect(() => {
     getCurrentProfessional().then(setSeed);
-    getBookings().then(setBookings);
+    refetchBookings();
+    fetch("/api/professionals/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setProfile)
+      .catch(() => setProfile(null))
+      .finally(() => setHydrated(true));
   }, []);
 
-  function updateBooking(id: string, patch: Partial<Booking>) {
-    setBookings((prev) => (prev ? prev.map((b) => (b.id === id ? { ...b, ...patch } : b)) : prev));
+  async function handleAccept(id: string) {
+    await fetch(`/api/bookings/${id}/accept`, { method: "POST" });
+    refetchBookings();
+  }
+  async function handleReject(id: string) {
+    await fetch(`/api/bookings/${id}/reject`, { method: "POST" });
+    refetchBookings();
+  }
+  async function handlePropose(id: string, dateLabel: string, time: string) {
+    await fetch(`/api/bookings/${id}/propose`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proposedDate: labelToISO(dateLabel), proposedStartTime: time }),
+    });
+    refetchBookings();
   }
 
   const professional = seed ? mergeProviderProfile(seed, profile) : null;
@@ -84,6 +112,8 @@ export default function ProfessionalDashboardPage() {
           <AvailabilityToggle initialAvailable={professional.status === "disponible"} />
         </div>
 
+        {hydrated && onboarded && <RubroPanelSection categoryId={professional.categoryId} profile={profile} />}
+
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Ingresos del mes" value={`AR$ ${formatAmount(334000)}`} icon={DollarSign} trend={{ value: "15% vs. mes anterior", positive: true }} />
           <StatCard label="Visitas al perfil" value="1.284" icon={Eye} trend={{ value: "8%", positive: true }} hint="últimos 30 días" />
@@ -136,9 +166,9 @@ export default function ProfessionalDashboardPage() {
                   <SolicitudCard
                     key={b.id}
                     booking={b}
-                    onAccept={() => updateBooking(b.id, { status: "confirmada" })}
-                    onReject={() => updateBooking(b.id, { status: "rechazada" })}
-                    onPropose={(dateLabel, startTime) => updateBooking(b.id, { status: "reprogramada", dateLabel, startTime })}
+                    onAccept={() => handleAccept(b.id)}
+                    onReject={() => handleReject(b.id)}
+                    onPropose={(dateLabel, startTime) => handlePropose(b.id, dateLabel, startTime)}
                   />
                 ))
               )}

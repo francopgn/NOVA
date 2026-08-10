@@ -8,7 +8,8 @@ import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNearbyProfessionals } from "@/lib/api";
-import { CATEGORIES, ZONES, type CategoryId, type Zone } from "@/lib/constants";
+import { ZONES, type CategoryId, type Zone } from "@/lib/constants";
+import { useCategories } from "@/hooks/use-categories";
 import type { Professional } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { SlidersHorizontal } from "lucide-react";
@@ -19,6 +20,7 @@ const MapView = dynamic(() => import("@/components/organisms/map-view").then((m)
 });
 
 export default function MapPage() {
+  const { searchCategories } = useCategories();
   const [all, setAll] = React.useState<Professional[] | null>(null);
   const [onlyAvailable, setOnlyAvailable] = React.useState(false);
   const [category, setCategory] = React.useState<CategoryId | "todas">("todas");
@@ -85,7 +87,7 @@ export default function MapPage() {
                 className="mb-4 w-full rounded-xl border border-border bg-secondary/60 px-3 py-2 text-sm"
               >
                 <option value="todas">Todas las categorías</option>
-                {CATEGORIES.map((c) => (
+                {searchCategories.map((c) => (
                   <option key={c.id} value={c.id}>{c.label}</option>
                 ))}
               </select>

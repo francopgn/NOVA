@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DEFAULT_FILTERS, searchProfessionals } from "@/lib/api";
+import { useProviderProfile } from "@/hooks/use-provider-profile";
+import { CURRENT_PROFESSIONAL } from "@/lib/mock-data";
 import type { Professional, SearchFilters } from "@/lib/types";
 import type { CategoryId } from "@/lib/constants";
 
@@ -43,10 +45,26 @@ function SearchPageInner() {
   }));
   const [results, setResults] = React.useState<Professional[] | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
+  const [categoryFieldFilters, setCategoryFieldFilters] = React.useState<Record<string, string | boolean>>({});
+  const { profile: myProviderProfile } = useProviderProfile();
 
   function patch(p: Partial<SearchFilters>) {
     setFilters((prev) => ({ ...prev, ...p }));
   }
+
+  function patchCategoryField(fieldId: string, value: string | boolean | undefined) {
+    setCategoryFieldFilters((prev) => {
+      const next = { ...prev };
+      if (value === undefined) delete next[fieldId];
+      else next[fieldId] = value;
+      return next;
+    });
+  }
+
+  // Los campos dinámicos solo tienen sentido para una única categoría a la vez.
+  React.useEffect(() => {
+    if (filters.categoryIds.length !== 1) setCategoryFieldFilters({});
+  }, [filters.categoryIds]);
 
   React.useEffect(() => {
     let active = true;
@@ -59,6 +77,20 @@ function SearchPageInner() {
     };
   }, [filters]);
 
+  // Los 32 profesionales de ejemplo son anteriores al sistema de campos
+  // personalizados, así que solo el prestador dado de alta por vos (si
+  // completó esos campos) puede matchear un filtro dinámico activo — es
+  // el comportamiento correcto: un profesional que nunca declaró un campo
+  // no debería aparecer al filtrar por él.
+  const activeFieldFilterEntries = Object.entries(categoryFieldFilters);
+  const filteredResults =
+    results && activeFieldFilterEntries.length > 0
+      ? results.filter((p) => {
+          const values = p.id === CURRENT_PROFESSIONAL.id ? myProviderProfile?.customFieldValues ?? {} : {};
+          return activeFieldFilterEntries.every(([fieldId, value]) => values[fieldId] === value);
+        })
+      : results;
+
   return (
     <SiteShell>
       <div className="container py-6">
@@ -66,7 +98,7 @@ function SearchPageInner() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Buscar especialistas</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {results ? `${results.length} resultados` : "Buscando..."}
+              {filteredResults ? `${filteredResults.length} resultados` : "Buscando..."}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -91,14 +123,14 @@ function SearchPageInner() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[280px_1fr]">
           <aside className="hidden lg:block">
             <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-border bg-card p-5 thin-scrollbar">
-              <FiltersPanel filters={filters} onChange={patch} />
+              <FiltersPanel filters={filters} onChange={patch} categoryFieldFilters={categoryFieldFilters} onCategoryFieldFilterChange={patchCategoryField} />
             </div>
           </aside>
 
           <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
-            {!results
+            {!filteredResults
               ? Array.from({ length: 6 }).map((_, i) => <ProfessionalCardSkeleton key={i} />)
-              : results.length === 0
+              : filteredResults.length === 0
               ? (
                 <div className="col-span-full flex flex-col items-center gap-2 py-20 text-center">
                   <p className="text-lg font-medium">No encontramos resultados</p>
@@ -108,7 +140,7 @@ function SearchPageInner() {
                   </Button>
                 </div>
               )
-              : results.map((p) => <ProfessionalCard key={p.id} professional={p} />)}
+              : filteredResults.map((p) => <ProfessionalCard key={p.id} professional={p} />)}
           </div>
         </div>
       </div>
@@ -121,9 +153,9 @@ function SearchPageInner() {
               <X size={16} />
             </button>
           </DialogHeader>
-          <FiltersPanel filters={filters} onChange={patch} />
+          <FiltersPanel filters={filters} onChange={patch} categoryFieldFilters={categoryFieldFilters} onCategoryFieldFilterChange={patchCategoryField} />
           <Button className="mt-2 w-full" onClick={() => setMobileFiltersOpen(false)}>
-            Ver {results?.length ?? ""} resultados
+            Ver {filteredResults?.length ?? ""} resultados
           </Button>
         </DialogContent>
       </Dialog>

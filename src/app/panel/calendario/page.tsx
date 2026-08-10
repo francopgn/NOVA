@@ -8,31 +8,61 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookingStatusBadge } from "@/components/molecules/booking-status-badge";
-import { getBookings } from "@/lib/api";
+import { mapApiBooking, labelToISO } from "@/lib/booking-adapters";
 import { cn, formatPrice } from "@/lib/utils";
 import type { Booking } from "@/lib/types";
 
-const DAY_TABS = ["Hoy", "Mañana", "Viernes"];
 const WEEK_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+// Fase B3 — antes leía de getBookings() (mock-data.ts) con solapamiento
+// simulado a mano. Ahora habla con /api/bookings real; la detección de
+// solapamiento queda como UI lista para cuando calculemos superposición de
+// verdad del lado del servidor (no la calculamos todavía, así que el
+// aviso rojo no va a aparecer con datos reales — no es un bug).
 export default function CalendarPage() {
   const [bookings, setBookings] = React.useState<Booking[] | null>(null);
   const [activeDay, setActiveDay] = React.useState("Hoy");
   const [rescheduling, setRescheduling] = React.useState<string | null>(null);
+  const [rescheduleDay, setRescheduleDay] = React.useState("Hoy");
+  const [rescheduleTime, setRescheduleTime] = React.useState("");
   const [dismissedWarnings, setDismissedWarnings] = React.useState<Set<string>>(new Set());
 
-  React.useEffect(() => {
-    getBookings().then(setBookings);
-  }, []);
-
-  function updateBooking(id: string, patch: Partial<Booking>) {
-    setBookings((prev) => (prev ? prev.map((b) => (b.id === id ? { ...b, ...patch } : b)) : prev));
+  function refetch() {
+    fetch("/api/bookings?as=profesional")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setBookings(data.map(mapApiBooking)))
+      .catch(() => setBookings([]));
   }
+
+  React.useEffect(refetch, []);
+
+  async function handleCancel(id: string) {
+    await fetch(`/api/bookings/${id}/cancel`, { method: "POST" });
+    refetch();
+  }
+
+  async function submitReschedule(id: string) {
+    if (!rescheduleTime) return;
+    await fetch(`/api/bookings/${id}/propose`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proposedDate: labelToISO(rescheduleDay), proposedStartTime: rescheduleTime }),
+    });
+    setRescheduling(null);
+    setRescheduleTime("");
+    refetch();
+  }
+
+  const dayTabs = React.useMemo(() => {
+    const labels = new Set(["Hoy", "Mañana"]);
+    (bookings ?? []).forEach((b) => labels.add(b.dateLabel));
+    return Array.from(labels);
+  }, [bookings]);
 
   const dayBookings = (bookings ?? []).filter((b) => b.dateLabel === activeDay).sort((a, b) => a.startTime.localeCompare(b.startTime));
   const bookingsByDay = WEEK_LABELS.map((label, i) => ({
     label,
-    count: (bookings ?? []).filter((b) => (i === 0 ? b.dateLabel === "Hoy" : i === 1 ? b.dateLabel === "Mañana" : i === 4 ? b.dateLabel === "Viernes" : false)).length,
+    count: (bookings ?? []).filter((b) => (i === 0 ? b.dateLabel === "Hoy" : i === 1 ? b.dateLabel === "Mañana" : false)).length,
   }));
 
   return (
@@ -76,7 +106,7 @@ export default function CalendarPage() {
 
           <TabsContent value="diaria">
             <div className="mb-4 flex gap-2">
-              {DAY_TABS.map((d) => (
+              {dayTabs.map((d) => (
                 <button
                   key={d}
                   onClick={() => setActiveDay(d)}
@@ -109,7 +139,7 @@ export default function CalendarPage() {
                               Aceptar igualmente
                             </Button>
                             <Button size="sm" onClick={() => setRescheduling(b.id)}>Reprogramar</Button>
-                            <Button size="sm" variant="destructive" onClick={() => updateBooking(b.id, { status: "cancelada" })}>Cancelar</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleCancel(b.id)}>Cancelar</Button>
                           </div>
                         </div>
                       )}
@@ -127,24 +157,51 @@ export default function CalendarPage() {
                         </span>
                         <p className="text-sm font-semibold tabular-nums">{formatPrice(b.totalPrice, b.currency)}</p>
                         <BookingStatusBadge status={b.status} />
-                        <Button size="sm" variant="ghost" onClick={() => setRescheduling(rescheduling === b.id ? null : b.id)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setRescheduling(rescheduling === b.id ? null : b.id);
+                            setRescheduleDay(b.dateLabel);
+                            setRescheduleTime(b.startTime);
+                          }}
+                        >
                           Reprogramar
                         </Button>
+                        {(b.status === "pendiente" || b.status === "confirmada") && (
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleCancel(b.id)}>
+                            Cancelar
+                          </Button>
+                        )}
                       </div>
 
                       {rescheduling === b.id && (
                         <div className="rounded-2xl border border-border bg-secondary/30 p-4">
                           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Reprogramación rápida</p>
                           <div className="flex flex-wrap items-center gap-2">
-                            {["+15 min", "+30 min", "+1 h", "+2 h"].map((label) => (
-                              <Button key={label} size="sm" variant="outline" onClick={() => setRescheduling(null)}>
+                            {["Hoy", "Mañana", "Pasado mañana", "Esta semana"].map((label) => (
+                              <button
+                                key={label}
+                                onClick={() => setRescheduleDay(label)}
+                                className={cn(
+                                  "rounded-full border px-3 py-1.5 text-xs font-medium",
+                                  rescheduleDay === label ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground"
+                                )}
+                              >
                                 {label}
-                              </Button>
+                              </button>
                             ))}
-                            <input type="time" defaultValue={b.startTime} className="rounded-full border border-border bg-secondary/60 px-3 py-1.5 text-sm" />
-                            <Button size="sm" onClick={() => setRescheduling(null)}>Confirmar horario</Button>
+                            <input
+                              type="time"
+                              value={rescheduleTime}
+                              onChange={(e) => setRescheduleTime(e.target.value)}
+                              className="rounded-full border border-border bg-secondary/60 px-3 py-1.5 text-sm"
+                            />
+                            <Button size="sm" onClick={() => submitReschedule(b.id)}>Enviar propuesta</Button>
                           </div>
-                          <p className="mt-2 text-[11px] text-muted-foreground">La propuesta expira automáticamente en 30 minutos si el cliente no responde.</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">
+                            Se crea una propuesta de horario — el cliente la tiene que aceptar para que quede confirmada.
+                          </p>
                         </div>
                       )}
                     </div>
