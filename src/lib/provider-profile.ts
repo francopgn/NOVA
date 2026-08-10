@@ -15,6 +15,8 @@ export interface ProviderProfileDraft {
   sessionTypes: SessionType[];
   currency: "ARS" | "USD";
   pricing: { duration: 30 | 45 | 60 | 90; price: number }[];
+  selectedServiceIds: string[];
+  customFieldValues: Record<string, string | boolean>;
 }
 
 /** Curated avatar picker — stand-in for a real photo upload until there's a backend to store files. */

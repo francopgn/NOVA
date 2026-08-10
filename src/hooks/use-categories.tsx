@@ -1,58 +1,18 @@
 "use client";
 import * as React from "react";
-import { CATEGORIES } from "@/lib/constants";
 import type { CategoryDraft, ManagedCategory } from "@/lib/category-types";
 
-const STORAGE_KEY = "sessio:categories";
-
-const SEED_ICON_KEY: Record<string, string> = {
-  "coaches-ejecutivos": "briefcase",
-  "terapeutas-holisticos": "sparkles",
-  "consultores-financieros": "line-chart",
-  "mentores-tech": "cpu",
-  "especialistas-marketing": "megaphone",
-  formadores: "graduation-cap",
-  "nutricionistas-deportivos": "apple",
-  "especialistas-bienestar": "heart-pulse",
-};
-const SEED_COLOR_KEY: Record<string, string> = {
-  "coaches-ejecutivos": "bronze",
-  "terapeutas-holisticos": "sage",
-  "consultores-financieros": "sky",
-  "mentores-tech": "violet",
-  "especialistas-marketing": "coral",
-  formadores: "amber",
-  "nutricionistas-deportivos": "emerald",
-  "especialistas-bienestar": "rose",
-};
-
-function seedCategories(): ManagedCategory[] {
-  return CATEGORIES.map((c, i) => ({
-    id: c.id,
-    slug: c.id,
-    label: c.label,
-    blurb: c.blurb,
-    icon: SEED_ICON_KEY[c.id] ?? "star",
-    color: SEED_COLOR_KEY[c.id] ?? "bronze",
-    coverImageUrl: `https://picsum.photos/seed/cat-${c.id}/800/500`,
-    seoTitle: `${c.label} | Sessio`,
-    seoDescription: c.blurb,
-    order: i,
-    active: true,
-    showInHome: true,
-    showInSearch: true,
-    createdAt: Date.now(),
-  }));
-}
-
-function slugify(label: string) {
-  return label
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
+// Fase B2 — antes esto vivía en localStorage (hooks/use-categories.tsx
+// original de la Fase 6). Ahora lee y escribe contra /api/categories, pero
+// mantiene exactamente la misma forma pública (categories, hydrated,
+// homeCategories, searchCategories, getCategory, createCategory,
+// updateCategory, duplicateCategory, toggleActive, moveCategory) para que
+// ningún componente que ya usa este hook necesite cambiar.
+//
+// Diferencia importante: createCategory/duplicateCategory ahora son
+// asincrónicas de verdad (antes devolvían el objeto al toque porque todo
+// pasaba en el navegador) — los call-sites en las páginas "nueva" ya están
+// actualizados para esperarlas.
 
 interface CategoriesContextValue {
   categories: ManagedCategory[];
@@ -60,11 +20,11 @@ interface CategoriesContextValue {
   homeCategories: ManagedCategory[];
   searchCategories: ManagedCategory[];
   getCategory: (idOrSlug: string) => ManagedCategory | undefined;
-  createCategory: (draft: CategoryDraft) => ManagedCategory;
-  updateCategory: (id: string, patch: Partial<CategoryDraft>) => void;
-  duplicateCategory: (id: string) => void;
-  toggleActive: (id: string) => void;
-  moveCategory: (id: string, direction: "up" | "down") => void;
+  createCategory: (draft: CategoryDraft) => Promise<ManagedCategory>;
+  updateCategory: (id: string, patch: Partial<CategoryDraft>) => Promise<void>;
+  duplicateCategory: (id: string) => Promise<void>;
+  toggleActive: (id: string) => Promise<void>;
+  moveCategory: (id: string, direction: "up" | "down") => Promise<void>;
 }
 
 const CategoriesContext = React.createContext<CategoriesContextValue | null>(null);
@@ -74,90 +34,57 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
   const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      setCategories(raw ? (JSON.parse(raw) as ManagedCategory[]) : seedCategories());
-    } catch {
-      setCategories(seedCategories());
-    } finally {
-      setHydrated(true);
-    }
-  }, []);
-
-  const persist = React.useCallback((next: ManagedCategory[]) => {
-    setCategories(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // ignore quota / privacy-mode errors
-    }
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data: ManagedCategory[]) => setCategories(data))
+      .catch(() => setCategories([]))
+      .finally(() => setHydrated(true));
   }, []);
 
   const getCategory = React.useCallback((idOrSlug: string) => categories.find((c) => c.id === idOrSlug || c.slug === idOrSlug), [categories]);
 
-  const createCategory = React.useCallback(
-    (draft: CategoryDraft): ManagedCategory => {
-      const slug = draft.slug || slugify(draft.label);
-      const created: ManagedCategory = {
-        ...draft,
-        slug,
-        id: `${slug}-${Date.now().toString(36)}`,
-        order: categories.length,
-        createdAt: Date.now(),
-      };
-      persist([...categories, created]);
-      return created;
-    },
-    [categories, persist]
-  );
+  const createCategory = React.useCallback(async (draft: CategoryDraft): Promise<ManagedCategory> => {
+    const res = await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
+    const created: ManagedCategory = await res.json();
+    setCategories((prev) => [...prev, created]);
+    return created;
+  }, []);
 
-  const updateCategory = React.useCallback(
-    (id: string, patch: Partial<CategoryDraft>) => {
-      persist(categories.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-    },
-    [categories, persist]
-  );
+  const updateCategory = React.useCallback(async (id: string, patch: Partial<CategoryDraft>) => {
+    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))); // optimista
+    await fetch(`/api/categories/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+  }, []);
 
-  const duplicateCategory = React.useCallback(
-    (id: string) => {
-      const source = categories.find((c) => c.id === id);
-      if (!source) return;
-      const slug = `${source.slug}-copia`;
-      const copy: ManagedCategory = {
-        ...source,
-        id: `${slug}-${Date.now().toString(36)}`,
-        slug,
-        label: `${source.label} (copia)`,
-        order: categories.length,
-        active: false,
-        createdAt: Date.now(),
-      };
-      persist([...categories, copy]);
-    },
-    [categories, persist]
-  );
+  const duplicateCategory = React.useCallback(async (id: string) => {
+    const res = await fetch(`/api/categories/${id}/duplicate`, { method: "POST" });
+    const copy: ManagedCategory = await res.json();
+    setCategories((prev) => [...prev, copy]);
+  }, []);
 
   const toggleActive = React.useCallback(
-    (id: string) => {
-      persist(categories.map((c) => (c.id === id ? { ...c, active: !c.active } : c)));
+    async (id: string) => {
+      const current = categories.find((c) => c.id === id);
+      if (!current) return;
+      await updateCategory(id, { active: !current.active });
     },
-    [categories, persist]
+    [categories, updateCategory]
   );
 
   const moveCategory = React.useCallback(
-    (id: string, direction: "up" | "down") => {
+    async (id: string, direction: "up" | "down") => {
       const sorted = [...categories].sort((a, b) => a.order - b.order);
       const idx = sorted.findIndex((c) => c.id === id);
       const swapWith = direction === "up" ? idx - 1 : idx + 1;
       if (idx === -1 || swapWith < 0 || swapWith >= sorted.length) return;
       const a = sorted[idx]!;
       const b = sorted[swapWith]!;
-      const aOrder = a.order;
-      a.order = b.order;
-      b.order = aOrder;
-      persist(categories.map((c) => (c.id === a.id ? a : c.id === b.id ? b : c)));
+      setCategories((prev) => prev.map((c) => (c.id === a.id ? { ...c, order: b.order } : c.id === b.id ? { ...c, order: a.order } : c)));
+      await Promise.all([
+        fetch(`/api/categories/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: b.order }) }),
+        fetch(`/api/categories/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: a.order }) }),
+      ]);
     },
-    [categories, persist]
+    [categories]
   );
 
   const sorted = [...categories].sort((a, b) => a.order - b.order);

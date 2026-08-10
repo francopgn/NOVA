@@ -157,6 +157,7 @@ export interface FrequentClient {
 }
 
 export type NotificationType =
+  | "nueva-solicitud"
   | "reserva-aceptada"
   | "reserva-rechazada"
   | "reprogramacion"

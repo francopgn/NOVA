@@ -2,7 +2,8 @@
 import * as React from "react";
 import type { ManagedService, ServiceDraft } from "@/lib/service-types";
 
-const STORAGE_KEY = "sessio:services";
+// Fase B2 — mismo patrón que use-categories.tsx: misma forma pública que la
+// versión de la Fase 6 (localStorage), ahora contra /api/services.
 
 interface ServicesContextValue {
   services: ManagedService[];
@@ -10,12 +11,12 @@ interface ServicesContextValue {
   servicesFor: (categoryId: string) => ManagedService[];
   activeServicesFor: (categoryId: string) => ManagedService[];
   getService: (id: string) => ManagedService | undefined;
-  createService: (draft: ServiceDraft) => ManagedService;
-  updateService: (id: string, patch: Partial<ServiceDraft>) => void;
-  duplicateService: (id: string) => void;
-  toggleActive: (id: string) => void;
-  moveService: (id: string, direction: "up" | "down") => void;
-  deleteService: (id: string) => void;
+  createService: (draft: ServiceDraft) => Promise<ManagedService>;
+  updateService: (id: string, patch: Partial<ServiceDraft>) => Promise<void>;
+  duplicateService: (id: string) => Promise<void>;
+  toggleActive: (id: string) => Promise<void>;
+  moveService: (id: string, direction: "up" | "down") => Promise<void>;
+  deleteService: (id: string) => Promise<void>;
 }
 
 const ServicesContext = React.createContext<ServicesContextValue | null>(null);
@@ -25,23 +26,11 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setServices(JSON.parse(raw));
-    } catch {
-      // ignore malformed storage
-    } finally {
-      setHydrated(true);
-    }
-  }, []);
-
-  const persist = React.useCallback((next: ManagedService[]) => {
-    setServices(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // ignore quota / privacy-mode errors
-    }
+    fetch("/api/services")
+      .then((res) => res.json())
+      .then((data: ManagedService[]) => setServices(data))
+      .catch(() => setServices([]))
+      .finally(() => setHydrated(true));
   }, []);
 
   const servicesFor = React.useCallback(
@@ -51,41 +40,39 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
   const activeServicesFor = React.useCallback((categoryId: string) => servicesFor(categoryId).filter((s) => s.active), [servicesFor]);
   const getService = React.useCallback((id: string) => services.find((s) => s.id === id), [services]);
 
-  const createService = React.useCallback(
-    (draft: ServiceDraft): ManagedService => {
-      const siblings = services.filter((s) => s.categoryId === draft.categoryId);
-      const created: ManagedService = { ...draft, id: `svc-${Date.now().toString(36)}`, order: siblings.length, createdAt: Date.now() };
-      persist([...services, created]);
-      return created;
-    },
-    [services, persist]
-  );
+  const createService = React.useCallback(async (draft: ServiceDraft): Promise<ManagedService> => {
+    const res = await fetch(`/api/categories/${draft.categoryId}/services`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    });
+    const created: ManagedService = await res.json();
+    setServices((prev) => [...prev, created]);
+    return created;
+  }, []);
 
-  const updateService = React.useCallback(
-    (id: string, patch: Partial<ServiceDraft>) => {
-      persist(services.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-    },
-    [services, persist]
-  );
+  const updateService = React.useCallback(async (id: string, patch: Partial<ServiceDraft>) => {
+    setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    await fetch(`/api/services/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+  }, []);
 
-  const duplicateService = React.useCallback(
-    (id: string) => {
-      const source = services.find((s) => s.id === id);
-      if (!source) return;
-      const siblings = services.filter((s) => s.categoryId === source.categoryId);
-      const copy: ManagedService = { ...source, id: `svc-${Date.now().toString(36)}`, name: `${source.name} (copia)`, order: siblings.length, active: false, createdAt: Date.now() };
-      persist([...services, copy]);
-    },
-    [services, persist]
-  );
+  const duplicateService = React.useCallback(async (id: string) => {
+    const res = await fetch(`/api/services/${id}/duplicate`, { method: "POST" });
+    const copy: ManagedService = await res.json();
+    setServices((prev) => [...prev, copy]);
+  }, []);
 
   const toggleActive = React.useCallback(
-    (id: string) => persist(services.map((s) => (s.id === id ? { ...s, active: !s.active } : s))),
-    [services, persist]
+    async (id: string) => {
+      const current = services.find((s) => s.id === id);
+      if (!current) return;
+      await updateService(id, { active: !current.active });
+    },
+    [services, updateService]
   );
 
   const moveService = React.useCallback(
-    (id: string, direction: "up" | "down") => {
+    async (id: string, direction: "up" | "down") => {
       const target = services.find((s) => s.id === id);
       if (!target) return;
       const siblings = [...services.filter((s) => s.categoryId === target.categoryId)].sort((a, b) => a.order - b.order);
@@ -94,15 +81,19 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
       if (swapWith < 0 || swapWith >= siblings.length) return;
       const a = siblings[idx]!;
       const b = siblings[swapWith]!;
-      const aOrder = a.order;
-      a.order = b.order;
-      b.order = aOrder;
-      persist(services.map((s) => (s.id === a.id ? a : s.id === b.id ? b : s)));
+      setServices((prev) => prev.map((s) => (s.id === a.id ? { ...s, order: b.order } : s.id === b.id ? { ...s, order: a.order } : s)));
+      await Promise.all([
+        fetch(`/api/services/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: b.order }) }),
+        fetch(`/api/services/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: a.order }) }),
+      ]);
     },
-    [services, persist]
+    [services]
   );
 
-  const deleteService = React.useCallback((id: string) => persist(services.filter((s) => s.id !== id)), [services, persist]);
+  const deleteService = React.useCallback(async (id: string) => {
+    setServices((prev) => prev.filter((s) => s.id !== id));
+    await fetch(`/api/services/${id}`, { method: "DELETE" });
+  }, []);
 
   return (
     <ServicesContext.Provider

@@ -1,6 +1,18 @@
 "use client";
-import * as React from "react";
-import { CURRENT_CLIENT } from "@/lib/mock-data";
+import { useSession, signIn, signOut as nextAuthSignOut } from "next-auth/react";
+
+// Fase B1 — antes esto era un Context propio guardado en localStorage.
+// Ahora es un wrapper fino sobre next-auth/react: mantiene la misma forma
+// (`user`, `loading`, `signInWithGoogle`, `signOut`) para que Navbar,
+// AuthDialog, el perfil de cliente, etc. no necesiten cambiar nada.
+//
+// Cambio de comportamiento importante: como el login ahora es un redirect
+// real a Google (no una función que devuelve el usuario al toque),
+// `signInWithGoogle` ya no devuelve el usuario de forma síncrona — dispara
+// la navegación y NextAuth te trae de vuelta a `callbackUrl` solo. El rol
+// que elegís acá (cliente/prestador) define A DÓNDE volvés, no el rol real
+// en la base todavía: la promoción a "profesional" ocurre al completar
+// /panel/alta (Fase B2).
 
 export type UserRole = "cliente" | "profesional";
 
@@ -12,78 +24,32 @@ export interface AuthUser {
   role: UserRole;
 }
 
-interface AuthContextValue {
-  user: AuthUser | null;
-  loading: boolean;
-  signInWithGoogle: (role: UserRole) => Promise<AuthUser>;
-  signOut: () => void;
-}
-
-const AuthContext = React.createContext<AuthContextValue | null>(null);
-const STORAGE_KEY = "sessio:auth-user";
-
-// La cuenta de Google de un prestador nuevo es una identidad propia, separada
-// del perfil público que arma en el onboarding (igual que en la vida real: tu
-// cuenta de Google no es lo mismo que el nombre de tu estudio o consultorio).
-const GOOGLE_PROVIDER_IDENTITY = {
-  id: "google-provider-1",
-  name: "Franco Medina",
-  email: "franco.medina@gmail.com",
-  avatarUrl: "https://i.pravatar.cc/200?img=13",
-};
-
-function personaFor(role: UserRole): AuthUser {
-  return role === "cliente"
-    ? { id: CURRENT_CLIENT.id, name: CURRENT_CLIENT.name, email: CURRENT_CLIENT.email, avatarUrl: CURRENT_CLIENT.avatarUrl, role }
-    : { ...GOOGLE_PROVIDER_IDENTITY, role };
-}
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<AuthUser | null>(null);
-  const [loading, setLoading] = React.useState(false);
-
-  React.useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw));
-    } catch {
-      // ignore malformed storage
-    }
-  }, []);
-
-  const signInWithGoogle = React.useCallback(async (role: UserRole) => {
-    setLoading(true);
-    // Simula la latencia del popup/redirect de OAuth de Google.
-    await new Promise((resolve) => setTimeout(resolve, 1100));
-    const persona = personaFor(role);
-    setUser(persona);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persona));
-    } catch {
-      // ignore quota / privacy-mode errors
-    }
-    setLoading(false);
-    return persona;
-  }, []);
-
-  const signOut = React.useCallback(() => {
-    setUser(null);
-    try {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
 export function useAuth() {
-  const ctx = React.useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  const { data: session, status } = useSession();
+
+  const user: AuthUser | null = session?.user
+    ? {
+        id: session.user.id,
+        name: session.user.name ?? "",
+        email: session.user.email ?? "",
+        avatarUrl: session.user.image ?? "",
+        role: session.user.role === "profesional" ? "profesional" : "cliente",
+      }
+    : null;
+
+  function signInWithGoogle(role: UserRole) {
+    const callbackUrl = role === "profesional" ? "/panel/alta" : "/perfil";
+    return signIn("google", { callbackUrl });
+  }
+
+  function signOut() {
+    return nextAuthSignOut({ callbackUrl: "/" });
+  }
+
+  return {
+    user,
+    loading: status === "loading",
+    signInWithGoogle,
+    signOut,
+  };
 }
