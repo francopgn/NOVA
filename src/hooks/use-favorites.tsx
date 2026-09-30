@@ -1,45 +1,56 @@
 "use client";
 import * as React from "react";
 
+// Favoritos reales — antes vivía en localStorage. Ahora habla con
+// /api/favorites, pero mantiene la misma forma pública (favorites,
+// isFavorite, toggleFavorite) para que FavoriteButton no necesite cambios,
+// solo qué valor le pasan (ahora el slug del profesional, no un id mock).
+
 interface FavoritesContextValue {
   favorites: Set<string>;
-  isFavorite: (id: string) => boolean;
-  toggleFavorite: (id: string) => void;
+  hydrated: boolean;
+  isFavorite: (slug: string) => boolean;
+  toggleFavorite: (slug: string) => void;
 }
 
 const FavoritesContext = React.createContext<FavoritesContextValue | null>(null);
-const STORAGE_KEY = "sessio:favorites";
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = React.useState<Set<string>>(new Set());
+  const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setFavorites(new Set(JSON.parse(raw)));
-    } catch {
-      // ignore malformed storage
-    }
+    fetch("/api/favorites")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((slugs: string[]) => setFavorites(new Set(slugs)))
+      .catch(() => setFavorites(new Set()))
+      .finally(() => setHydrated(true));
   }, []);
 
-  const toggleFavorite = React.useCallback((id: string) => {
+  const isFavorite = React.useCallback((slug: string) => favorites.has(slug), [favorites]);
+
+  const toggleFavorite = React.useCallback((slug: string) => {
     setFavorites((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
-      } catch {
-        // ignore quota / privacy-mode errors
+      const wasFavorite = next.has(slug);
+      if (wasFavorite) next.delete(slug);
+      else next.add(slug);
+
+      if (wasFavorite) {
+        fetch(`/api/favorites/${slug}`, { method: "DELETE" }).catch(() => {});
+      } else {
+        fetch("/api/favorites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ professionalSlug: slug }),
+        }).catch(() => {});
       }
       return next;
     });
   }, []);
 
-  const isFavorite = React.useCallback((id: string) => favorites.has(id), [favorites]);
-
   return (
-    <FavoritesContext.Provider value={{ favorites, isFavorite, toggleFavorite }}>
+    <FavoritesContext.Provider value={{ favorites, hydrated, isFavorite, toggleFavorite }}>
       {children}
     </FavoritesContext.Provider>
   );
