@@ -40,7 +40,7 @@ export function ProfessionalCard({ professional, priority = false }: { professio
           </div>
 
           <div className="absolute right-3 top-3">
-            <FavoriteButton id={professional.id} />
+            <FavoriteButton id={professional.slug} />
           </div>
 
           {professional.hasVideo && (
