@@ -28,7 +28,7 @@ export default function ClientProfilePage() {
     getBookings().then(setBookings);
   }, []);
 
-  const favoriteProfessionals = PROFESSIONALS.filter((p) => favorites.has(p.id));
+  const favoriteProfessionals = PROFESSIONALS.filter((p) => favorites.has(p.slug));
   const followedProfessionals = PROFESSIONALS.slice(0, 4);
   const upcoming = bookings?.filter((b) => ["pendiente", "confirmada", "reprogramada"].includes(b.status)) ?? [];
   const history = bookings?.filter((b) => ["completada", "cancelada", "rechazada"].includes(b.status)) ?? [];
