@@ -57,7 +57,7 @@ export function ProfessionalProfileView({ professional: seed, reviews: seedRevie
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <FavoriteButton id={professional.id} variant="inline" />
+              <FavoriteButton id={professional.slug} variant="inline" />
               <Button variant="outline" size="icon" aria-label="Compartir">
                 <Share2 size={16} />
               </Button>
