@@ -6,19 +6,27 @@ function serializeService(s: { createdAt: Date; [key: string]: unknown }) {
   return { ...s, createdAt: s.createdAt.getTime() };
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { serviceId: string } }) {
+export async function POST(_request: NextRequest, { params }: { params: { serviceId: string } }) {
   const denied = await requireAdmin();
   if (denied) return denied;
 
-  const patch = await request.json();
-  const updated = await prisma.service.update({ where: { id: params.serviceId }, data: patch });
-  return NextResponse.json(serializeService(updated));
-}
+  const source = await prisma.service.findUnique({ where: { id: params.serviceId } });
+  if (!source) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-export async function DELETE(_request: NextRequest, { params }: { params: { serviceId: string } }) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
+  const count = await prisma.service.count({ where: { categoryId: source.categoryId } });
+  const copy = await prisma.service.create({
+    data: {
+      categoryId: source.categoryId,
+      name: `${source.name} (copia)`,
+      icon: source.icon,
+      description: source.description,
+      suggestedPrice: source.suggestedPrice,
+      suggestedDuration: source.suggestedDuration,
+      color: source.color,
+      active: false,
+      order: count,
+    },
+  });
 
-  await prisma.service.delete({ where: { id: params.serviceId } });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(serializeService(copy), { status: 201 });
 }
