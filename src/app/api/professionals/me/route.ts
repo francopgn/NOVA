@@ -15,6 +15,7 @@ export async function GET() {
       pricing: true,
       services: { include: { service: true } },
       customValues: true,
+      _count: { select: { favorites: true } },
     },
   });
 
@@ -24,6 +25,7 @@ export async function GET() {
     ...professional,
     createdAt: professional.createdAt.getTime(),
     updatedAt: professional.updatedAt.getTime(),
+    favoritesCount: professional._count.favorites,
     selectedServiceIds: professional.services.map((s: { serviceId: string }) => s.serviceId),
     customFieldValues: Object.fromEntries(
       professional.customValues.map((v: { customFieldId: string; valueBoolean: boolean | null; valueText: string | null }) => [
